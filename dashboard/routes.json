@@ -1,0 +1,833 @@
+{
+  "generated_at": "2026-10-28T17:03:25",
+  "plan_date": "2026-10-28",
+  "source": "sample_deliveries.csv",
+  "depot": [
+    51.5072,
+    -0.1276
+  ],
+  "settings": {
+    "drivers": 3,
+    "capacity": 35.0,
+    "max_stops": 25,
+    "horizon_days": 0,
+    "speed_kmh": 30,
+    "service_min": 5,
+    "road_network": false
+  },
+  "summary": {
+    "total_rows": 48,
+    "planned": 30,
+    "deferred": 11,
+    "skipped": 0,
+    "total_km": 118.93
+  },
+  "routes": [
+    {
+      "driver": "Ana",
+      "stops": [
+        {
+          "id": "ORD-1044",
+          "customer": "Ali R.",
+          "address": "180 Green Ln",
+          "zone": "SW3",
+          "lat": 51.51379,
+          "lon": -0.12317,
+          "qty": 3.0,
+          "priority": 1,
+          "status": "pending",
+          "overdue": false,
+          "due": null,
+          "seq": 1,
+          "eta_min": 2,
+          "leg_km": 0.79
+        },
+        {
+          "id": "ORD-1012",
+          "customer": "Nguyen L.",
+          "address": "197 Victoria Rd",
+          "zone": "SW5",
+          "lat": 51.52717,
+          "lon": -0.12949,
+          "qty": 6.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 2,
+          "eta_min": 10,
+          "leg_km": 1.55
+        },
+        {
+          "id": "ORD-1006",
+          "customer": "Jones F.",
+          "address": "110 Green Ln",
+          "zone": "SW15",
+          "lat": 51.52862,
+          "lon": -0.12868,
+          "qty": 5.0,
+          "priority": 3,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 3,
+          "eta_min": 15,
+          "leg_km": 0.17
+        },
+        {
+          "id": "ORD-1023",
+          "customer": "Jones W.",
+          "address": "85 Park Ave",
+          "zone": "SW20",
+          "lat": 51.55615,
+          "lon": -0.11782,
+          "qty": 2.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": null,
+          "seq": 4,
+          "eta_min": 26,
+          "leg_km": 3.15
+        },
+        {
+          "id": "ORD-1039",
+          "customer": "Okafor M.",
+          "address": "184 Green Ln",
+          "zone": "SW5",
+          "lat": 51.55831,
+          "lon": -0.00849,
+          "qty": 3.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 5,
+          "eta_min": 46,
+          "leg_km": 7.56
+        },
+        {
+          "id": "ORD-1011",
+          "customer": "Garcia K.",
+          "address": "184 Mill Ln",
+          "zone": "SW12",
+          "lat": 51.59596,
+          "lon": -0.03102,
+          "qty": 1.0,
+          "priority": 3,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 6,
+          "eta_min": 60,
+          "leg_km": 4.47
+        },
+        {
+          "id": "ORD-1022",
+          "customer": "Garcia V.",
+          "address": "165 Church Rd",
+          "zone": "SW9",
+          "lat": 51.58175,
+          "lon": -0.05016,
+          "qty": 5.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 7,
+          "eta_min": 70,
+          "leg_km": 2.06
+        },
+        {
+          "id": "ORD-1013",
+          "customer": "Okafor M.",
+          "address": "115 Mill Ln",
+          "zone": "SW18",
+          "lat": 51.58223,
+          "lon": -0.12865,
+          "qty": 3.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": null,
+          "seq": 8,
+          "eta_min": 85,
+          "leg_km": 5.42
+        },
+        {
+          "id": "ORD-1014",
+          "customer": "Kowalski N.",
+          "address": "92 Mill Ln",
+          "zone": "SW8",
+          "lat": 51.57272,
+          "lon": -0.19407,
+          "qty": 2.0,
+          "priority": 1,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 9,
+          "eta_min": 100,
+          "leg_km": 4.64
+        },
+        {
+          "id": "ORD-1027",
+          "customer": "Kowalski A.",
+          "address": "201 Park Ave",
+          "zone": "SW16",
+          "lat": 51.56744,
+          "lon": -0.24163,
+          "qty": 2.0,
+          "priority": 3,
+          "status": "pending",
+          "overdue": false,
+          "due": null,
+          "seq": 10,
+          "eta_min": 111,
+          "leg_km": 3.34
+        }
+      ],
+      "distance_km": 43.51,
+      "duration_min": 137,
+      "load": 32.0,
+      "method": "held-karp (exact) on straight-line distance",
+      "path": [
+        [
+          51.5072,
+          -0.1276
+        ],
+        [
+          51.51379,
+          -0.12317
+        ],
+        [
+          51.52717,
+          -0.12949
+        ],
+        [
+          51.52862,
+          -0.12868
+        ],
+        [
+          51.55615,
+          -0.11782
+        ],
+        [
+          51.55831,
+          -0.00849
+        ],
+        [
+          51.59596,
+          -0.03102
+        ],
+        [
+          51.58175,
+          -0.05016
+        ],
+        [
+          51.58223,
+          -0.12865
+        ],
+        [
+          51.57272,
+          -0.19407
+        ],
+        [
+          51.56744,
+          -0.24163
+        ],
+        [
+          51.5072,
+          -0.1276
+        ]
+      ],
+      "maps_url": "https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=51.5072,-0.1276&destination=51.5072,-0.1276&waypoints=51.51379,-0.12317|51.52717,-0.12949|51.52862,-0.12868|51.55615,-0.11782|51.55831,-0.00849|51.59596,-0.03102|51.58175,-0.05016|51.58223,-0.12865|51.57272,-0.19407"
+    },
+    {
+      "driver": "Ben",
+      "stops": [
+        {
+          "id": "ORD-1017",
+          "customer": "Smith Q.",
+          "address": "124 Mill Ln",
+          "zone": "SW2",
+          "lat": 51.48783,
+          "lon": -0.15791,
+          "qty": 2.0,
+          "priority": 1,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 1,
+          "eta_min": 6,
+          "leg_km": 3.01
+        },
+        {
+          "id": "ORD-1034",
+          "customer": "Silva H.",
+          "address": "31 Queen St",
+          "zone": "SW2",
+          "lat": 51.44822,
+          "lon": -0.13555,
+          "qty": 3.0,
+          "priority": 3,
+          "status": "pending",
+          "overdue": false,
+          "due": null,
+          "seq": 2,
+          "eta_min": 20,
+          "leg_km": 4.67
+        },
+        {
+          "id": "ORD-1015",
+          "customer": "Ali O.",
+          "address": "213 London Rd",
+          "zone": "SW6",
+          "lat": 51.45895,
+          "lon": -0.2076,
+          "qty": 3.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": true,
+          "due": "2026-10-27",
+          "seq": 3,
+          "eta_min": 36,
+          "leg_km": 5.13
+        },
+        {
+          "id": "ORD-1033",
+          "customer": "Jones G.",
+          "address": "5 King St",
+          "zone": "SW6",
+          "lat": 51.44074,
+          "lon": -0.23205,
+          "qty": 5.0,
+          "priority": 1,
+          "status": "pending",
+          "overdue": false,
+          "due": null,
+          "seq": 4,
+          "eta_min": 46,
+          "leg_km": 2.64
+        },
+        {
+          "id": "ORD-1038",
+          "customer": "Ali L.",
+          "address": "81 Church Rd",
+          "zone": "SW8",
+          "lat": 51.44188,
+          "lon": -0.24111,
+          "qty": 4.0,
+          "priority": 1,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 5,
+          "eta_min": 52,
+          "leg_km": 0.64
+        },
+        {
+          "id": "ORD-1007",
+          "customer": "Nguyen G.",
+          "address": "21 London Rd",
+          "zone": "SW10",
+          "lat": 51.46192,
+          "lon": -0.22367,
+          "qty": 5.0,
+          "priority": 3,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 6,
+          "eta_min": 62,
+          "leg_km": 2.53
+        },
+        {
+          "id": "ORD-1041",
+          "customer": "Brown O.",
+          "address": "24 Green Ln",
+          "zone": "SW1",
+          "lat": 51.47824,
+          "lon": -0.21888,
+          "qty": 3.0,
+          "priority": 3,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 7,
+          "eta_min": 71,
+          "leg_km": 1.84
+        },
+        {
+          "id": "ORD-1045",
+          "customer": "Patel S.",
+          "address": "163 Church Rd",
+          "zone": "SW9",
+          "lat": 51.49376,
+          "lon": -0.25588,
+          "qty": 1.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": true,
+          "due": "2026-10-27",
+          "seq": 8,
+          "eta_min": 82,
+          "leg_km": 3.09
+        },
+        {
+          "id": "ORD-1048",
+          "customer": "Ali V.",
+          "address": "129 Station Rd",
+          "zone": "SW9",
+          "lat": 51.5128,
+          "lon": -0.21584,
+          "qty": 3.0,
+          "priority": 1,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 9,
+          "eta_min": 94,
+          "leg_km": 3.49
+        },
+        {
+          "id": "ORD-1024",
+          "customer": "Jones X.",
+          "address": "127 Green Ln",
+          "zone": "SW1",
+          "lat": 51.55038,
+          "lon": -0.20958,
+          "qty": 1.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 10,
+          "eta_min": 107,
+          "leg_km": 4.2
+        },
+        {
+          "id": "ORD-1026",
+          "customer": "Ali Z.",
+          "address": "160 London Rd",
+          "zone": "SW1",
+          "lat": 51.50181,
+          "lon": -0.17628,
+          "qty": 4.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": null,
+          "seq": 11,
+          "eta_min": 124,
+          "leg_km": 5.87
+        }
+      ],
+      "distance_km": 40.54,
+      "duration_min": 136,
+      "load": 34.0,
+      "method": "held-karp (exact) on straight-line distance",
+      "path": [
+        [
+          51.5072,
+          -0.1276
+        ],
+        [
+          51.48783,
+          -0.15791
+        ],
+        [
+          51.44822,
+          -0.13555
+        ],
+        [
+          51.45895,
+          -0.2076
+        ],
+        [
+          51.44074,
+          -0.23205
+        ],
+        [
+          51.44188,
+          -0.24111
+        ],
+        [
+          51.46192,
+          -0.22367
+        ],
+        [
+          51.47824,
+          -0.21888
+        ],
+        [
+          51.49376,
+          -0.25588
+        ],
+        [
+          51.5128,
+          -0.21584
+        ],
+        [
+          51.55038,
+          -0.20958
+        ],
+        [
+          51.50181,
+          -0.17628
+        ],
+        [
+          51.5072,
+          -0.1276
+        ]
+      ],
+      "maps_url": "https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=51.5072,-0.1276&destination=51.5072,-0.1276&waypoints=51.48783,-0.15791|51.44822,-0.13555|51.45895,-0.2076|51.44074,-0.23205|51.44188,-0.24111|51.46192,-0.22367|51.47824,-0.21888|51.49376,-0.25588|51.5128,-0.21584"
+    },
+    {
+      "driver": "Cy",
+      "stops": [
+        {
+          "id": "ORD-1037",
+          "customer": "Ali K.",
+          "address": "130 Park Ave",
+          "zone": "SW17",
+          "lat": 51.49862,
+          "lon": -0.11761,
+          "qty": 3.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": null,
+          "seq": 1,
+          "eta_min": 2,
+          "leg_km": 1.18
+        },
+        {
+          "id": "ORD-1043",
+          "customer": "Okafor Q.",
+          "address": "70 Station Rd",
+          "zone": "SW14",
+          "lat": 51.46615,
+          "lon": -0.00583,
+          "qty": 6.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 2,
+          "eta_min": 24,
+          "leg_km": 8.54
+        },
+        {
+          "id": "ORD-1008",
+          "customer": "Smith H.",
+          "address": "132 Mill Ln",
+          "zone": "SW6",
+          "lat": 51.46903,
+          "lon": 0.01645,
+          "qty": 3.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 3,
+          "eta_min": 33,
+          "leg_km": 1.58
+        },
+        {
+          "id": "ORD-1019",
+          "customer": "Murphy S.",
+          "address": "97 Station Rd",
+          "zone": "SW9",
+          "lat": 51.42179,
+          "lon": -0.0153,
+          "qty": 3.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 4,
+          "eta_min": 49,
+          "leg_km": 5.7
+        },
+        {
+          "id": "ORD-1003",
+          "customer": "Nguyen C.",
+          "address": "162 London Rd",
+          "zone": "SW2",
+          "lat": 51.42784,
+          "lon": -0.10796,
+          "qty": 5.0,
+          "priority": 3,
+          "status": "pending",
+          "overdue": true,
+          "due": "2026-10-27",
+          "seq": 5,
+          "eta_min": 67,
+          "leg_km": 6.46
+        },
+        {
+          "id": "ORD-1020",
+          "customer": "Ali T.",
+          "address": "123 King St",
+          "zone": "SW10",
+          "lat": 51.43796,
+          "lon": -0.13118,
+          "qty": 1.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": true,
+          "due": "2026-10-27",
+          "seq": 6,
+          "eta_min": 76,
+          "leg_km": 1.96
+        },
+        {
+          "id": "ORD-1030",
+          "customer": "Patel D.",
+          "address": "4 Church Rd",
+          "zone": "SW17",
+          "lat": 51.44526,
+          "lon": -0.11311,
+          "qty": 6.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": false,
+          "due": "2026-10-28",
+          "seq": 7,
+          "eta_min": 84,
+          "leg_km": 1.49
+        },
+        {
+          "id": "ORD-1025",
+          "customer": "Brown Y.",
+          "address": "115 Green Ln",
+          "zone": "SW12",
+          "lat": 51.45206,
+          "lon": -0.09606,
+          "qty": 1.0,
+          "priority": 2,
+          "status": "pending",
+          "overdue": true,
+          "due": "2026-10-27",
+          "seq": 8,
+          "eta_min": 92,
+          "leg_km": 1.4
+        },
+        {
+          "id": "ORD-1042",
+          "customer": "Garcia P.",
+          "address": "132 Church Rd",
+          "zone": "SW4",
+          "lat": 51.48638,
+          "lon": -0.12237,
+          "qty": 2.0,
+          "priority": 1,
+          "status": "pending",
+          "overdue": true,
+          "due": "2026-10-27",
+          "seq": 9,
+          "eta_min": 105,
+          "leg_km": 4.23
+        }
+      ],
+      "distance_km": 34.88,
+      "duration_min": 115,
+      "load": 30.0,
+      "method": "held-karp (exact) on straight-line distance",
+      "path": [
+        [
+          51.5072,
+          -0.1276
+        ],
+        [
+          51.49862,
+          -0.11761
+        ],
+        [
+          51.46615,
+          -0.00583
+        ],
+        [
+          51.46903,
+          0.01645
+        ],
+        [
+          51.42179,
+          -0.0153
+        ],
+        [
+          51.42784,
+          -0.10796
+        ],
+        [
+          51.43796,
+          -0.13118
+        ],
+        [
+          51.44526,
+          -0.11311
+        ],
+        [
+          51.45206,
+          -0.09606
+        ],
+        [
+          51.48638,
+          -0.12237
+        ],
+        [
+          51.5072,
+          -0.1276
+        ]
+      ],
+      "maps_url": "https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=51.5072,-0.1276&destination=51.5072,-0.1276&waypoints=51.49862,-0.11761|51.46615,-0.00583|51.46903,0.01645|51.42179,-0.0153|51.42784,-0.10796|51.43796,-0.13118|51.44526,-0.11311|51.45206,-0.09606|51.48638,-0.12237"
+    }
+  ],
+  "deferred": [
+    {
+      "id": "ORD-1001",
+      "customer": "Chen A.",
+      "address": "13 Church Rd",
+      "zone": "SW18",
+      "lat": 51.47549,
+      "lon": -0.23235,
+      "qty": 1.0,
+      "priority": 2,
+      "status": "pending",
+      "reason": "due 2026-10-29 (after 2026-10-28)",
+      "due": "2026-10-29"
+    },
+    {
+      "id": "ORD-1002",
+      "customer": "Smith B.",
+      "address": "112 Mill Ln",
+      "zone": "SW3",
+      "lat": 51.58095,
+      "lon": -0.21319,
+      "qty": 2.0,
+      "priority": 1,
+      "status": "pending",
+      "reason": "due 2026-10-29 (after 2026-10-28)",
+      "due": "2026-10-29"
+    },
+    {
+      "id": "ORD-1004",
+      "customer": "Garcia D.",
+      "address": "108 Station Rd",
+      "zone": "SW18",
+      "lat": 51.42558,
+      "lon": -0.02006,
+      "qty": 1.0,
+      "priority": 2,
+      "status": "pending",
+      "reason": "due 2026-10-29 (after 2026-10-28)",
+      "due": "2026-10-29"
+    },
+    {
+      "id": "ORD-1005",
+      "customer": "Nguyen E.",
+      "address": "96 Church Rd",
+      "zone": "SW18",
+      "lat": 51.43575,
+      "lon": -0.10624,
+      "qty": 6.0,
+      "priority": 1,
+      "status": "pending",
+      "reason": "due 2026-10-29 (after 2026-10-28)",
+      "due": "2026-10-29"
+    },
+    {
+      "id": "ORD-1009",
+      "customer": "Jones I.",
+      "address": "147 Green Ln",
+      "zone": "SW11",
+      "lat": 51.42426,
+      "lon": -0.07714,
+      "qty": 6.0,
+      "priority": 2,
+      "status": "pending",
+      "reason": "due 2026-10-29 (after 2026-10-28)",
+      "due": "2026-10-29"
+    },
+    {
+      "id": "ORD-1028",
+      "customer": "Silva B.",
+      "address": "102 King St",
+      "zone": "SW13",
+      "lat": 51.43281,
+      "lon": 0.00625,
+      "qty": 6.0,
+      "priority": 1,
+      "status": "pending",
+      "reason": "due 2026-10-30 (after 2026-10-28)",
+      "due": "2026-10-30"
+    },
+    {
+      "id": "ORD-1029",
+      "customer": "Okafor C.",
+      "address": "152 King St",
+      "zone": "SW5",
+      "lat": 51.4478,
+      "lon": -0.23949,
+      "qty": 5.0,
+      "priority": 3,
+      "status": "pending",
+      "reason": "due 2026-10-30 (after 2026-10-28)",
+      "due": "2026-10-30"
+    },
+    {
+      "id": "ORD-1035",
+      "customer": "Nguyen I.",
+      "address": "71 High St",
+      "zone": "SW4",
+      "lat": 51.57618,
+      "lon": -0.26055,
+      "qty": 5.0,
+      "priority": 3,
+      "status": "pending",
+      "reason": "due 2026-10-29 (after 2026-10-28)",
+      "due": "2026-10-29"
+    },
+    {
+      "id": "ORD-1036",
+      "customer": "Ali J.",
+      "address": "84 London Rd",
+      "zone": "SW17",
+      "lat": 51.554,
+      "lon": -0.00385,
+      "qty": 5.0,
+      "priority": 2,
+      "status": "pending",
+      "reason": "due 2026-10-30 (after 2026-10-28)",
+      "due": "2026-10-30"
+    },
+    {
+      "id": "ORD-1040",
+      "customer": "Ali N.",
+      "address": "42 Park Ave",
+      "zone": "SW6",
+      "lat": 51.5516,
+      "lon": -0.24936,
+      "qty": 6.0,
+      "priority": 3,
+      "status": "pending",
+      "reason": "due 2026-10-29 (after 2026-10-28)",
+      "due": "2026-10-29"
+    },
+    {
+      "id": "ORD-1047",
+      "customer": "Okafor U.",
+      "address": "68 High St",
+      "zone": "SW6",
+      "lat": 51.54492,
+      "lon": 0.00384,
+      "qty": 2.0,
+      "priority": 2,
+      "status": "pending",
+      "reason": "due 2026-10-30 (after 2026-10-28)",
+      "due": "2026-10-30"
+    }
+  ],
+  "skipped": []
+}
