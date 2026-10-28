@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Delivery Routes</title>
+<title>Driver Routes</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -14,71 +14,108 @@
   @media (prefers-color-scheme: dark) {
     :root { --bg: #0f1115; --panel: #171a21; --text: #e8eaee; --muted: #9aa3b2; --line: #2a2f3a;
             --chip: #222733; --warn: #f59e0b; --danger: #f87171; --accent: #60a5fa; }
+    .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9); }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
   body { background: var(--bg); color: var(--text);
          font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  .app { display: grid; grid-template-columns: 400px 1fr; height: 100vh; }
+  button, input { font: inherit; color: inherit; }
+  .app { display: grid; grid-template-columns: 420px 1fr; height: 100vh; }
   aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto;
           display: flex; flex-direction: column; }
   header { padding: 18px 20px 12px; border-bottom: 1px solid var(--line); }
   h1 { font-size: 18px; margin: 0 0 2px; }
   .meta { color: var(--muted); font-size: 12px; }
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px 20px; }
+
+  .controls { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
+  .fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .field { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 11px;
+           text-transform: uppercase; letter-spacing: .04em; }
+  .field input { width: 100%; background: var(--chip); border: 1px solid var(--line); border-radius: 6px;
+                 padding: 5px 8px; font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0;
+                 font-variant-numeric: tabular-nums; }
+  .field input:focus, .dname:focus { outline: none; border-color: var(--accent); }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .row b { color: var(--text); font-weight: 600; }
+  .link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px;
+          font-size: 12px; cursor: pointer; color: var(--muted); }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip span { opacity: .75; font-variant-numeric: tabular-nums; }
+  .chips.off { opacity: .4; }
+  .row select { background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px;
+                max-width: 190px; color: var(--text); }
+  .row label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  .search { position: relative; }
+  .search input { width: 100%; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  .search input:focus { outline: none; border-color: var(--accent); }
+  .results { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 1100; background: var(--panel);
+             border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+             max-height: 320px; overflow-y: auto; }
+  .results:empty { display: none; }
+  .results button { display: block; width: 100%; text-align: left; background: none; border: 0;
+                    border-bottom: 1px solid var(--line); padding: 7px 10px; cursor: pointer; }
+  .results button:hover, .results button.hl { background: var(--chip); }
+  .picked .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pickbtn { margin-top: 6px; font-size: 12px; color: var(--accent); background: none; border: 1px solid #ccd;
+             border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px 20px 4px; }
   .kpi { background: var(--chip); border-radius: 8px; padding: 8px 10px; }
-  .kpi b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .kpi b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .advice { padding: 6px 20px 0; font-size: 12px; color: var(--warn); }
+  .advice:empty { display: none; }
   .kpi span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-  .tabs { display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--line); }
-  .tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
-                 padding: 8px 10px; font: inherit; cursor: pointer; }
-  .tabs button.on { color: var(--text); border-color: var(--accent); font-weight: 600; }
   .list { padding: 12px 20px 24px; display: flex; flex-direction: column; gap: 10px; }
   .driver { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
   .driver.dim { opacity: .45; }
   .dhead { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; }
   .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
-  .dname { font-weight: 600; flex: 1; }
-  .dstats { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .dname { font-weight: 600; flex: 1; min-width: 0; background: none; border: 1px solid transparent;
+           border-radius: 6px; padding: 2px 6px; margin-left: -6px; }
+  .dname:hover { border-color: var(--line); }
+  .dstats { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
   .bar { height: 4px; background: var(--chip); }
   .bar i { display: block; height: 100%; }
-  .stops { list-style: none; margin: 0; padding: 4px 0; border-top: 1px solid var(--line); display: none; }
-  .driver.open .stops { display: block; }
-  .stops li { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; padding: 6px 12px; cursor: pointer; }
+  .body { display: none; border-top: 1px solid var(--line); }
+  .driver.open .body { display: block; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
+  .actions a, .actions button, .nav a { font-size: 12px; color: var(--accent); background: none; border: 1px solid var(--line);
+         border-radius: 6px; padding: 3px 8px; text-decoration: none; cursor: pointer; white-space: nowrap; }
+  .hint { color: var(--muted); font-size: 12px; padding: 0 12px 8px; }
+  .stops { list-style: none; margin: 0; padding: 0 0 6px; }
+  .stops li { display: grid; grid-template-columns: 26px 1fr auto; gap: 4px 8px; padding: 8px 12px; cursor: pointer;
+              border-top: 1px solid var(--line); }
   .stops li:hover { background: var(--chip); }
   .seq { width: 22px; height: 22px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700;
          display: grid; place-items: center; }
-  .addr { font-size: 13px; }
+  .addr { font-size: 13px; font-weight: 600; }
   .sub { color: var(--muted); font-size: 12px; }
   .eta { color: var(--muted); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+  .nav { grid-column: 2 / 4; display: flex; gap: 6px; }
   .tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 4px;
-         margin-left: 4px; vertical-align: 1px; }
-  .tag.over { color: var(--danger); border: 1px solid var(--danger); }
-  .tag.high { color: var(--warn); border: 1px solid var(--warn); }
-  .actions { display: flex; gap: 8px; padding: 8px 12px 12px; }
-  .actions a, .actions button { font: inherit; font-size: 12px; color: var(--accent); background: none;
-         border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; text-decoration: none; cursor: pointer; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; }
+         margin-left: 4px; vertical-align: 1px; color: var(--warn); border: 1px solid var(--warn); }
+  .tag.over { color: var(--danger); border-color: var(--danger); }
   .empty { color: var(--muted); padding: 20px 0; }
-  .loader { padding: 12px 20px; border-top: 1px solid var(--line); margin-top: auto; color: var(--muted); font-size: 12px; }
-  .loader label { color: var(--accent); cursor: pointer; }
   #map { height: 100%; }
-  .pin { width: 24px; height: 24px; border-radius: 50%; color: #fff; font: 700 11px/24px system-ui;
+  #map.picking { cursor: crosshair; }
+  .pin { width: 22px; height: 22px; border-radius: 50%; color: #fff; font: 700 10px/22px system-ui;
          text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
-  .depot { width: 28px; height: 28px; border-radius: 6px; background: #16181d; color: #fff;
-           font: 700 13px/28px system-ui; text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  .depot { width: 30px; height: 30px; border-radius: 6px; background: #16181d; color: #fff; cursor: grab;
+           font: 700 13px/30px system-ui; text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  .popup .nav { margin-top: 6px; }
   @media (max-width: 800px) {
     .app { grid-template-columns: 1fr; grid-template-rows: 45vh auto; height: auto; }
-    #map { height: 45vh; order: -1; }
+    #map { height: 45vh; order: -1; position: sticky; top: 0; z-index: 1; }
     aside { border-right: 0; }
-    .kpis { grid-template-columns: repeat(2, 1fr); padding: 12px 16px; }
-    header, .tabs, .list, .loader { padding-left: 16px; padding-right: 16px; }
+    .fields, .kpis { grid-template-columns: repeat(2, 1fr); }
+    header, .controls, .kpis, .list { padding-left: 16px; padding-right: 16px; }
   }
   @media print {
-    #map, .tabs, .loader, .actions { display: none; }
-    .app { display: block; } .stops { display: block !important; }
+    #map, .controls, .actions, .nav { display: none; }
+    .app { display: block; } .body { display: block !important; }
   }
 </style>
 </head>
@@ -86,128 +123,584 @@
 <div class="app">
   <aside>
     <header>
-      <h1>Delivery Routes</h1>
-      <div class="meta" id="meta">Loading…</div>
+      <h1>Driver Routes</h1>
+      <div class="meta" id="meta">Loading terminals…</div>
     </header>
+    <section class="controls">
+      <div class="fields">
+        <label class="field">Drivers <input type="number" id="drivers" min="1" max="30" inputmode="numeric"></label>
+        <label class="field">Min / stop <input type="number" id="service" min="0" max="240" inputmode="numeric"></label>
+        <label class="field">Avg km/h <input type="number" id="speed" min="5" max="100" inputmode="numeric"></label>
+        <label class="field">Day (hrs) <input type="number" id="day" min="1" max="24" step="0.5" inputmode="decimal"></label>
+      </div>
+      <div class="row">Depot: <b id="depotLabel"></b> · drag the <b>D</b> pin to move it
+        <button class="link" id="depotReset">Reset</button></div>
+      <div class="row"><label><input type="checkbox" id="loop"> Return to start at the end</label></div>
+      <div class="row">Select terminals <span id="pickNote"></span>
+        <button class="link" id="clearPick" hidden>Clear</button></div>
+      <div class="search">
+        <input id="search" type="search" placeholder="Search terminal ID, merchant or address" autocomplete="off" spellcheck="false">
+        <div class="results" id="results"></div>
+      </div>
+      <div class="chips picked" id="picked"></div>
+      <div class="row" id="pickOpts" hidden>
+        Start from <select id="start"></select>
+        Order <select id="order"><option value="best">Recommended (shortest)</option><option value="mine">As I selected them</option></select>
+      </div>
+      <div class="row">Parishes to visit <span id="parishNote"></span>
+        <button class="link" id="allP">All</button><button class="link" id="noneP">None</button></div>
+      <div class="chips" id="parishes"></div>
+    </section>
     <div class="kpis" id="kpis"></div>
-    <div class="tabs">
-      <button class="on" data-tab="routes">Routes</button>
-      <button data-tab="deferred">Deferred <span id="dcount"></span></button>
-    </div>
+    <div class="advice" id="advice"></div>
     <div class="list" id="routes"></div>
-    <div class="list" id="deferred" hidden></div>
-    <div class="loader">Viewing a different plan? <label>Open routes.json<input type="file" accept=".json" id="file" hidden></label></div>
   </aside>
   <div id="map"></div>
 </div>
 <script>
 const COLORS = ["#2563eb", "#d97706", "#059669", "#db2777", "#7c3aed", "#0891b2", "#dc2626", "#65a30d", "#c026d3", "#475569"];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const fmtMin = m => m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : `${m}m`;
+const fmtMin = m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : `${m}m`; };
+const $ = id => document.getElementById(id);
 
-const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-const map = L.map("map", { zoomControl: true });
-L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`, {
-  maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+// Saved per browser; wrapped because storage can be blocked (private windows, strict settings).
+const store = {
+  get(k, fallback) { try { return JSON.parse(localStorage.getItem(k)) ?? fallback; } catch { return fallback; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const DEFAULTS = { drivers: 3, serviceMin: 15, speed: 35, dayHours: 8, parishes: ["Kingston", "Saint Andrew"],
+                   depot: [18.0075, -76.7850],  // New Kingston
+                   picked: [], startId: null, order: "best", loopArea: true, loopPicked: false };
+let settings = { ...DEFAULTS, ...store.get("routeSettings", {}) };
+let names = store.get("driverNames", []);
+const driverName = i => names[i] || `Driver ${i + 1}`;
+const save = () => store.set("routeSettings", settings);
+
+// ---------------------------------------------------------------------------
+// Road distances: straight line x a winding factor for local hops; long hops
+// follow the main-road network between towns (shortest paths, Floyd-Warshall).
+// ---------------------------------------------------------------------------
+const ROAD_FACTOR = 1.3;
+const LOCAL_KM = 10;
+const hav = (a, b) => {
+  const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+};
+
+function roadNetwork(hubs, roads) {
+  const ids = Object.keys(hubs), pts = ids.map(k => hubs[k]), n = ids.length;
+  const D = ids.map((_, i) => ids.map((_, j) => i === j ? 0 : Infinity));
+  for (const [a, b] of roads) {
+    const i = ids.indexOf(a), j = ids.indexOf(b), w = hav(pts[i], pts[j]) * ROAD_FACTOR;
+    D[i][j] = D[j][i] = Math.min(D[i][j], w);
+  }
+  for (let k = 0; k < n; k++) for (let i = 0; i < n; i++) for (let j = 0; j < n; j++)
+    if (D[i][k] + D[k][j] < D[i][j]) D[i][j] = D[i][k] + D[k][j];
+  const node = p => {
+    let hub = 0, best = Infinity;
+    pts.forEach((q, i) => { const d = hav(p, q); if (d < best) { best = d; hub = i; } });
+    return { p, hub, access: best * ROAD_FACTOR, near: ids[hub] };
+  };
+  const km = (a, b) => {
+    const direct = hav(a.p, b.p) * ROAD_FACTOR;
+    if (direct < LOCAL_KM || a.hub === b.hub) return direct;
+    const via = a.access + D[a.hub][b.hub] + b.access;
+    return Number.isFinite(via) ? Math.max(direct, via) : direct * 1.5;
+  };
+  return { node, km };
+}
+
+// ---------------------------------------------------------------------------
+// Route ordering on a local distance matrix m (n x n, node 0 = depot).
+// Exact Held-Karp up to 12 stops; otherwise nearest neighbour, then 2-opt and
+// Or-opt until neither finds a shorter tour.
+// ---------------------------------------------------------------------------
+function heldKarp(n, m) {
+  const k = n - 1, size = 1 << k, full = size - 1;
+  const dp = new Float64Array(size * k).fill(Infinity), par = new Int8Array(size * k).fill(-1);
+  for (let j = 0; j < k; j++) dp[(1 << j) * k + j] = m[j + 1];
+  for (let mask = 1; mask <= full; mask++) for (let j = 0; j < k; j++) {
+    const cur = dp[mask * k + j];
+    if (!(mask & (1 << j)) || cur === Infinity) continue;
+    for (let x = 0; x < k; x++) {
+      if (mask & (1 << x)) continue;
+      const nm = mask | (1 << x), c = cur + m[(j + 1) * n + x + 1];
+      if (c < dp[nm * k + x]) { dp[nm * k + x] = c; par[nm * k + x] = j; }
+    }
+  }
+  let last = 0, best = Infinity;
+  for (let j = 0; j < k; j++) { const c = dp[full * k + j] + m[(j + 1) * n]; if (c < best) { best = c; last = j; } }
+  const order = [];
+  for (let mask = full; last >= 0;) { order.push(last + 1); const p = par[mask * k + last]; mask ^= 1 << last; last = p; }
+  return [0, ...order.reverse(), 0];
+}
+
+function nearestNeighbour(n, m) {
+  const tour = [0], left = new Set(Array.from({ length: n - 1 }, (_, i) => i + 1));
+  while (left.size) {
+    let best = -1, bd = Infinity;
+    const from = tour[tour.length - 1];
+    for (const j of left) if (m[from * n + j] < bd) { bd = m[from * n + j]; best = j; }
+    tour.push(best); left.delete(best);
+  }
+  return [...tour, 0];
+}
+
+function twoOpt(t, n, m) {
+  let improved = false;
+  for (let i = 1; i < t.length - 2; i++) for (let j = i + 1; j < t.length - 1; j++) {
+    const a = t[i - 1], b = t[i], c = t[j], d = t[j + 1];
+    if (m[a * n + c] + m[b * n + d] < m[a * n + b] + m[c * n + d] - 1e-9) {
+      for (let x = i, y = j; x < y; x++, y--) [t[x], t[y]] = [t[y], t[x]];
+      improved = true;
+    }
+  }
+  return improved;
+}
+
+function orOpt(t, n, m) {  // move runs of 1-3 stops to a better spot, either way round
+  let improved = false;
+  for (let len = 1; len <= 3; len++) for (let i = 1; i + len < t.length; i++) {
+    const p = t[i - 1], s0 = t[i], s1 = t[i + len - 1], q = t[i + len];
+    const gain = m[p * n + s0] + m[s1 * n + q] - m[p * n + q];
+    for (let j = 0; j < t.length - 1; j++) {
+      if (j >= i - 1 && j <= i + len - 1) continue;
+      const a = t[j], b = t[j + 1];
+      const fwd = m[a * n + s0] + m[s1 * n + b] - m[a * n + b];
+      const rev = m[a * n + s1] + m[s0 * n + b] - m[a * n + b];
+      if (Math.min(fwd, rev) < gain - 1e-9) {
+        const seg = t.splice(i, len);
+        if (rev < fwd) seg.reverse();
+        t.splice(j < i ? j + 1 : j + 1 - len, 0, ...seg);
+        improved = true;
+        break;
+      }
+    }
+  }
+  return improved;
+}
+
+function solveTour(n, m) {
+  if (n <= 1) return { tour: [0, 0], method: "—" };
+  if (n <= 13) return { tour: heldKarp(n, m), method: "exact (Held-Karp)" };
+  const t = nearestNeighbour(n, m);
+  for (let pass = 0; pass < 200; pass++) {
+    const a = twoOpt(t, n, m), b = orOpt(t, n, m);
+    if (!a && !b) break;
+  }
+  return { tour: t, method: "2-opt + Or-opt" };
+}
+
+// ---------------------------------------------------------------------------
+// Split stops between drivers (sweep around the depot), rebalance the cuts so
+// working days are even, then order each driver's stops.
+// ---------------------------------------------------------------------------
+// opts.closed: return to the start (a cycle) or finish at the last stop (open path).
+// opts.rank: stop id -> position in the user's selection, to compare / follow their own order.
+function plan(stops, depot, k, cfg, net, opts = {}) {
+  const closed = opts.closed !== false, rank = opts.rank;
+  const nodes = [net.node(depot), ...stops.map(s => s.node)];
+  const S = nodes.length, M = new Float64Array(S * S);
+  for (let i = 0; i < S; i++) for (let j = i + 1; j < S; j++) M[i * S + j] = M[j * S + i] = net.km(nodes[i], nodes[j]);
+  const minutes = km => km / cfg.speed * 60;
+
+  const cos = Math.cos(depot[0] * Math.PI / 180);
+  const ang = stops.map(s => Math.atan2(s.lat - depot[0], (s.lon - depot[1]) * cos));
+  let order = stops.map((_, i) => i + 1).sort((a, b) => ang[a - 1] - ang[b - 1]);
+  let gapAt = 0, gap = -1;  // start the sweep after the widest empty wedge
+  order.forEach((x, i) => {
+    const g = (ang[order[(i + 1) % order.length] - 1] - ang[x - 1] + 2 * Math.PI) % (2 * Math.PI);
+    if (g > gap) { gap = g; gapAt = i; }
+  });
+  order = order.slice(gapAt + 1).concat(order.slice(0, gapAt + 1));
+
+  const N = order.length, cuts = Array.from({ length: k + 1 }, (_, g) => Math.round(g * N / k));
+  const estimate = g => {  // quick nearest-neighbour working time for group g
+    const left = order.slice(cuts[g], cuts[g + 1]);
+    let at = 0, km = 0;
+    while (left.length) {
+      let bi = 0;
+      for (let i = 1; i < left.length; i++) if (M[at * S + left[i]] < M[at * S + left[bi]]) bi = i;
+      km += M[at * S + left[bi]]; at = left[bi]; left.splice(bi, 1);
+    }
+    if (closed) km += M[at * S];
+    return minutes(km) + (cuts[g + 1] - cuts[g]) * cfg.serviceMin;
+  };
+  const est = Array.from({ length: k }, (_, g) => estimate(g));
+  const deadline = performance.now() + 250;
+  while (k > 1 && performance.now() < deadline) {
+    const g = est.indexOf(Math.max(...est));
+    if (cuts[g + 1] - cuts[g] < 2) break;
+    const options = [g - 1, g + 1].filter(x => x >= 0 && x < k).sort((a, b) => est[a] - est[b]);
+    let moved = false;
+    for (const nb of options) {
+      const edge = nb < g ? g : g + 1, before = cuts[edge];
+      cuts[edge] += nb < g ? 1 : -1;  // hand the boundary stop to the neighbour
+      const eg = estimate(g), en = estimate(nb);
+      if (Math.max(eg, en) < est[g] - 1e-6) { est[g] = eg; est[nb] = en; moved = true; break; }
+      cuts[edge] = before;
+    }
+    if (!moved) break;
+  }
+
+  return Array.from({ length: k }, (_, g) => {
+    const ids = [0, ...order.slice(cuts[g], cuts[g + 1])], n = ids.length;
+    const m = new Float64Array(n * n);
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) m[i * n + j] = M[ids[i] * S + ids[j]];
+    // Open path: make every edge back into the start free, so the solver picks the best place to finish.
+    if (!closed) for (let i = 1; i < n; i++) m[i * n] = 0;
+    const best = solveTour(n, m);
+    const length = t => t.slice(1).reduce((a, x, i) => a + m[t[i] * n + x], 0);
+    const pos = i => rank.get(stops[ids[i] - 1].id);
+    const mine = rank ? [0, ...ids.slice(1).map((_, i) => i + 1).sort((a, b) => pos(a) - pos(b)), 0] : null;
+    const useMine = mine && opts.keepOrder;
+    const tour = useMine ? mine : best.tour, method = useMine ? "your selection order" : best.method;
+    let clock = 0, km = 0;
+    const visits = [];
+    for (let x = 1; x < tour.length; x++) {
+      const leg = m[tour[x - 1] * n + tour[x]];
+      km += leg; clock += minutes(leg);
+      if (tour[x] !== 0) {
+        visits.push({ stop: stops[ids[tour[x]] - 1], seq: visits.length + 1, eta: clock, legKm: leg });
+        clock += cfg.serviceMin;
+      }
+    }
+    return { visits, km, min: n > 1 ? clock : 0, method, closed,
+             altKm: mine ? length(useMine ? best.tour : mine) : null };  // the order not being used
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Navigation links. Places are passed as search text (merchant + address),
+// which the apps resolve far more precisely than our town-level coordinates.
+// ---------------------------------------------------------------------------
+const placeText = s => `${s.merchants[0]}, ${s.address}, ${s.parish}, Jamaica`;
+const enc = encodeURIComponent;
+const nav = {
+  google: s => `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${enc(placeText(s))}`,
+  waze: s => `https://waze.com/ul?q=${enc(placeText(s))}&navigate=yes`,
+  apple: s => `https://maps.apple.com/?daddr=${enc(placeText(s))}&dirflg=d`
+};
+const navLinks = s => `<div class="nav">
+  <a href="${nav.google(s)}" target="_blank" rel="noopener">Google Maps</a>
+  <a href="${nav.waze(s)}" target="_blank" rel="noopener">Waze</a>
+  <a href="${nav.apple(s)}" target="_blank" rel="noopener">Apple Maps</a></div>`;
+
+// Google Maps takes at most 9 waypoints per link, so long routes are split into parts.
+function googleRouteParts(origin, visits, closed) {
+  const pts = [origin.text, ...visits.map(v => placeText(v.stop)), ...(closed ? [origin.text] : [])];
+  const parts = [];
+  for (let i = 0; i < pts.length - 1; i += 10) {
+    const seg = pts.slice(i, i + 11), end = i + seg.length - 1;  // this part drives to pts i+1..end
+    const from = i + 1, to = Math.min(end, visits.length);
+    parts.push({
+      label: from > visits.length ? "back to start"
+        : `${from === to ? `stop ${from}` : `stops ${from}–${to}`}${end > visits.length ? " → start" : ""}`,
+      url: "https://www.google.com/maps/dir/?api=1&travelmode=driving"
+        + `&origin=${enc(seg[0])}&destination=${enc(seg[seg.length - 1])}`
+        + (seg.length > 2 ? `&waypoints=${seg.slice(1, -1).map(enc).join("%7C")}` : "")
+    });
+  }
+  return parts;
+}
+
+// ---------------------------------------------------------------------------
+// Map and page
+// ---------------------------------------------------------------------------
+// Jamaica only: the map can't be panned or zoomed out past the island.
+const JAMAICA = L.latLngBounds([17.55, -78.55], [18.65, -76.05]);
+const map = L.map("map", { zoomControl: true, maxBounds: JAMAICA.pad(0.15), maxBoundsViscosity: 1, minZoom: 8 })
+  .fitBounds(JAMAICA);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {  // no API key needed
+  maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
+const depotMarker = L.marker(settings.depot, {
+  draggable: true, zIndexOffset: 1000,
+  icon: L.divIcon({ className: "", html: '<div class="depot">D</div>', iconSize: [30, 30] })
+}).bindTooltip("Depot — drag to move").addTo(map);
+depotMarker.on("dragend", () => {
+  const { lat, lng } = depotMarker.getLatLng();
+  if (!JAMAICA.contains([lat, lng])) { depotMarker.setLatLng(settings.depot); return; }
+  settings.depot = [+lat.toFixed(5), +lng.toFixed(5)];
+  save(); replan();
+});
 
-let layers = [], markers = {};
+let data = null, net = null, byId = {}, layers = [], markers = {}, fitNext = true;
 
-function render(data) {
+const isPicked = s => settings.picked.some(p => p.s === s.id);
+function togglePick(s, tid) {
+  if (isPicked(s)) {
+    settings.picked = settings.picked.filter(p => p.s !== s.id);
+    if (settings.startId === s.id) settings.startId = null;
+  } else settings.picked = [...settings.picked, { s: s.id, t: tid || s.terminals[0].id }];
+  save(); fitNext = true; drawPicked(); replan();
+}
+
+function stopPopup(s, i, v) {
+  const terms = s.terminals.map(t => `${esc(t.id)} (${t.currency})`).join(", ");
+  return `<div class="popup"><b>${esc(s.merchants.join(" · "))}</b><br>${esc(s.address)}, ${esc(s.parish)}
+    <br>${v ? `${esc(driverName(i))} · stop ${v.seq} · ETA +${fmtMin(v.eta)}` : "Start of the route"}
+    <br><span class="sub">Terminals: ${terms}</span>${navLinks(s)}
+    <button class="pickbtn" data-stop="${esc(s.id)}">${isPicked(s) ? "Remove from selection" : "Add to selection"}</button></div>`;
+}
+map.on("popupopen", e => {
+  const b = e.popup.getElement().querySelector(".pickbtn");
+  if (b) b.onclick = () => { map.closePopup(); togglePick(byId[b.dataset.stop]); };
+});
+
+function replan() {
+  if (!data) return;
+  const picked = settings.picked.map(p => byId[p.s]).filter(Boolean);
+  const selecting = picked.length > 0;
+  const start = selecting && picked.find(s => s.id === settings.startId) || null;
+  const origin = start
+    ? { p: [start.lat, start.lon], show: start.show, text: placeText(start), stop: start }
+    : { p: settings.depot, show: settings.depot, text: `${settings.depot[0]},${settings.depot[1]}` };
+  const chosen = new Set(settings.parishes);
+  const stops = selecting ? picked.filter(s => s !== start) : data.stops.filter(s => chosen.has(s.parish));
+  const available = Math.max(1, Math.min(30, settings.drivers | 0 || 1));
+  const opts = { closed: selecting ? settings.loopPicked : settings.loopArea, keepOrder: settings.order === "mine",
+                 rank: selecting ? new Map(picked.map((s, i) => [s.id, i])) : null };
+  let routes;
+  if (selecting) {  // a hand-picked set uses as few drivers as fit the working day
+    for (let k = 1; k <= Math.min(available, Math.max(1, stops.length)); k++) {
+      routes = plan(stops, origin.p, k, settings, net, opts);
+      if (Math.max(...routes.map(r => r.min)) <= settings.dayHours * 60) break;
+    }
+  } else routes = plan(stops, origin.p, available, settings, net, opts);
+  draw(routes, stops, origin, { selecting, available });
+}
+
+function draw(routes, stops, origin, { selecting, available }) {
   layers.forEach(l => map.removeLayer(l));
   layers = []; markers = {};
-  const s = data.summary;
-  document.getElementById("meta").textContent =
-    `Plan for ${data.plan_date} · ${data.source} · generated ${data.generated_at.replace("T", " ")}`;
-  const maxDur = Math.max(...data.routes.map(r => r.duration_min), 1);
-  document.getElementById("kpis").innerHTML = [
-    [s.planned, "Stops"], [data.routes.filter(r => r.stops.length).length, "Drivers"],
-    [s.total_km.toFixed(0), "Total km"], [s.deferred, "Deferred"]
+  depotMarker.setLatLng(settings.depot);
+  $("depotLabel").textContent = `near ${net.node(settings.depot).near}`;
+  $("loop").checked = selecting ? settings.loopPicked : settings.loopArea;
+
+  const used = routes.filter(r => r.visits.length);
+  const longest = Math.max(0, ...routes.map(r => r.min));
+  $("kpis").innerHTML = [
+    [stops.length + (origin.stop ? 1 : 0), "Stops"], [used.length, "Drivers"],
+    [routes.reduce((a, r) => a + r.km, 0).toFixed(1), "Total km"], [fmtMin(longest), "Longest day"]
   ].map(([v, l]) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join("");
 
-  const depot = L.marker(data.depot, { icon: L.divIcon({ className: "", html: '<div class="depot">D</div>', iconSize: [28, 28] }) })
-    .bindPopup("<b>Depot</b>").addTo(map);
-  layers.push(depot);
-  const bounds = [data.depot];
+  const dayMin = settings.dayHours * 60;
+  const maxMin = Math.max(longest, 1);
+  const needed = Math.ceil(routes.reduce((a, r) => a + r.min, 0) / dayMin);
+  $("advice").textContent = longest > dayMin
+    ? `Routes run past a ${settings.dayHours}h day — about ${needed} drivers would fit${selecting ? "" : ", or pick fewer parishes"}.`
+    : selecting && used.length < available ? `Using ${used.length} of ${available} drivers — the selection fits in a ${settings.dayHours}h day.` : "";
+  const routesEl = $("routes");
+  routesEl.innerHTML = stops.length ? "" : selecting
+    ? '<div class="empty">Select another terminal to route to.</div>'
+    : '<div class="empty">Pick at least one parish, or select terminals, to plan routes.</div>';
+  const bounds = [origin.show];
 
-  const routesEl = document.getElementById("routes");
-  routesEl.innerHTML = "";
-  data.routes.forEach((r, i) => {
+  if (origin.stop) {
+    const startMarker = L.marker(origin.show, {
+      zIndexOffset: 900, icon: L.divIcon({ className: "", html: '<div class="depot" style="background:#059669">S</div>', iconSize: [30, 30] })
+    }).bindPopup(() => stopPopup(origin.stop, 0, null)).addTo(map);
+    layers.push(startMarker);
+  }
+
+  const routeGroups = [];
+  routes.forEach((r, i) => {
     const color = COLORS[i % COLORS.length];
     const group = L.layerGroup().addTo(map);
-    layers.push(group);
-    if (r.path.length) L.polyline(r.path, { color, weight: 4, opacity: .85 }).addTo(group);
-    r.stops.forEach(st => {
-      bounds.push([st.lat, st.lon]);
-      const m = L.marker([st.lat, st.lon], {
-        icon: L.divIcon({ className: "", html: `<div class="pin" style="background:${color}">${st.seq}</div>`, iconSize: [24, 24] })
-      }).bindPopup(`<b>${esc(st.id)}</b> · ${esc(r.driver)} stop ${st.seq}<br>${esc(st.customer)}<br>${esc(st.address)} ${esc(st.zone)}
-        <br>${st.qty} pkg · ETA +${fmtMin(st.eta_min)}${st.due ? ` · due ${st.due}` : ""}`).addTo(group);
-      markers[`${i}-${st.seq}`] = m;
+    layers.push(group); routeGroups.push(group);
+    if (r.visits.length) {
+      L.polyline([origin.show, ...r.visits.map(v => v.stop.show), ...(r.closed ? [origin.show] : [])],
+        { color, weight: 3, opacity: .8 }).addTo(group);
+    }
+    r.visits.forEach(v => {
+      bounds.push(v.stop.show);
+      markers[`${i}-${v.seq}`] = L.marker(v.stop.show, {
+        icon: L.divIcon({ className: "", html: `<div class="pin" style="background:${color}">${v.seq}</div>`, iconSize: [22, 22] })
+      }).bindPopup(() => stopPopup(v.stop, i, v)).addTo(group);
     });
 
+    const over = r.min > dayMin;
     const card = document.createElement("div");
-    card.className = "driver" + (i === 0 ? " open" : "");
+    card.className = "driver" + (i === 0 && r.visits.length ? " open" : "");
     card.innerHTML = `
       <div class="dhead">
         <span class="swatch" style="background:${color}"></span>
-        <span class="dname">${esc(r.driver)}</span>
-        <span class="dstats">${r.stops.length} stops · ${r.distance_km.toFixed(1)} km · ${fmtMin(r.duration_min)}</span>
+        <input class="dname" value="${esc(driverName(i))}" placeholder="Driver ${i + 1}" aria-label="Driver name" spellcheck="false">
+        <span class="dstats">${r.visits.length} stops · ${r.km.toFixed(0)} km<br>${fmtMin(r.min)}${over ? '<span class="tag over">OVER DAY</span>' : ""}</span>
       </div>
-      <div class="bar" title="Route time relative to longest route"><i style="width:${r.duration_min / maxDur * 100}%;background:${color}"></i></div>
-      <ul class="stops">${r.stops.map(st => `
-        <li data-key="${i}-${st.seq}">
-          <span class="seq" style="background:${color}">${st.seq}</span>
-          <span><div class="addr">${esc(st.address || st.id)}${st.overdue ? '<span class="tag over">OVERDUE</span>' : ""}${st.priority === 1 ? '<span class="tag high">HIGH</span>' : ""}</div>
-            <div class="sub">${esc(st.id)} · ${esc(st.customer)} · ${st.qty} pkg</div></span>
-          <span class="eta">+${fmtMin(st.eta_min)}<br>${st.leg_km} km</span>
-        </li>`).join("") || '<li class="sub">No stops assigned</li>'}
-      </ul>
-      ${r.stops.length ? `<div class="actions">
-        <a href="${esc(r.maps_url)}" target="_blank" rel="noopener">Open in Google Maps${r.stops.length > 9 ? " (first 9)" : ""}</a>
-        <button data-solo>Show only this route</button>
-      </div><div class="sub" style="padding:0 12px 10px">Load ${r.load} · ${esc(r.method)}</div>` : ""}`;
+      <div class="bar" title="Working time relative to the longest route"><i style="width:${r.min / maxMin * 100}%;background:${over ? "var(--danger)" : color}"></i></div>
+      <div class="body">${r.visits.length ? `
+        ${r.altKm == null ? "" : `<div class="hint" style="padding-top:10px">${settings.order === "mine"
+          ? `Following your order: ${r.km.toFixed(1)} km. The recommended order is ${r.altKm.toFixed(1)} km${r.km - r.altKm > 0.05 ? ` (saves ${(r.km - r.altKm).toFixed(1)} km)` : ""}.`
+          : `<b>Recommended order</b>: ${r.km.toFixed(1)} km${r.altKm - r.km > 0.05 ? `, ${(r.altKm - r.km).toFixed(1)} km shorter than the order you selected them in` : " — same as your selection order"}.`}</div>`}
+        <div class="hint" style="padding-top:${r.altKm == null ? 10 : 0}px">${origin.stop ? `Starts at ${esc(origin.stop.merchants[0])}` : "Starts at the depot"}${r.closed ? " and returns there" : `, ends at stop ${r.visits.length}`}.</div>
+        <div class="actions" style="padding-top:0">${googleRouteParts(origin, r.visits, r.closed).map(p =>
+          `<a href="${p.url}" target="_blank" rel="noopener">Google Maps: ${p.label}</a>`).join("")}
+          <button data-solo>Show only this route</button></div>
+        <div class="hint">Waze and Apple Maps take one destination per link — use the buttons on each stop, in order.</div>
+        <ul class="stops">${r.visits.map(v => {
+          const s = v.stop, approx = s.precision === "parish" || s.parish_mismatch;
+          return `<li data-key="${i}-${v.seq}">
+            <span class="seq" style="background:${color}">${v.seq}</span>
+            <span><div class="addr">${esc(s.merchants.join(" · "))}${approx ? '<span class="tag" title="Map pin is only approximate; navigation links search the address">APPROX</span>' : ""}</div>
+              <div class="sub">${esc(s.address)}, ${esc(s.parish)}${s.parish_mismatch ? ` (listed as ${esc(s.listed_parish)})` : ""} ·${s.terminals.length} terminal${s.terminals.length > 1 ? "s" : ""}</div></span>
+            <span class="eta">+${fmtMin(v.eta)}<br>${v.legKm.toFixed(1)} km</span>
+            ${navLinks(s)}
+          </li>`; }).join("")}
+        </ul>
+        <div class="hint">Order: ${esc(r.method)} · road-network distances</div>`
+        : '<div class="hint" style="padding-top:10px">No stops assigned.</div>'}</div>`;
+
     card.querySelector(".dhead").onclick = () => card.classList.toggle("open");
-    card.querySelectorAll("li[data-key]").forEach(li => li.onclick = () => {
+    const nameInput = card.querySelector(".dname");
+    nameInput.onclick = e => e.stopPropagation();
+    nameInput.onkeydown = e => { if (e.key === "Enter" || e.key === "Escape") nameInput.blur(); };
+    nameInput.onchange = () => {
+      names[i] = nameInput.value.trim();
+      store.set("driverNames", names);
+      if (!names[i]) nameInput.value = driverName(i);
+    };
+    card.querySelectorAll("li[data-key]").forEach(li => li.onclick = e => {
+      if (e.target.closest("a")) return;
       const m = markers[li.dataset.key];
-      map.setView(m.getLatLng(), Math.max(map.getZoom(), 15)); m.openPopup();
+      map.setView(m.getLatLng(), Math.max(map.getZoom(), 14)); m.openPopup();
     });
     const solo = card.querySelector("[data-solo]");
     if (solo) solo.onclick = () => {
       const isSolo = card.dataset.solo === "1";
-      document.querySelectorAll(".driver").forEach((c, j) => {
+      routesEl.querySelectorAll(".driver").forEach((c, j) => {
         const show = isSolo || j === i;
         c.classList.toggle("dim", !show); c.dataset.solo = "";
-        const g = layers[j + 1]; show ? map.addLayer(g) : map.removeLayer(g);
+        show ? map.addLayer(routeGroups[j]) : map.removeLayer(routeGroups[j]);
       });
       card.dataset.solo = isSolo ? "" : "1";
       solo.textContent = isSolo ? "Show only this route" : "Show all routes";
-      if (!isSolo && r.path.length) map.fitBounds(r.path, { padding: [30, 30] });
+      if (!isSolo) map.fitBounds([origin.show, ...r.visits.map(v => v.stop.show)], { padding: [30, 30] });
     };
     routesEl.appendChild(card);
   });
-  map.fitBounds(bounds, { padding: [30, 30] });
-
-  document.getElementById("dcount").textContent = `(${data.deferred.length})`;
-  document.getElementById("deferred").innerHTML = data.deferred.length ? `
-    <table><thead><tr><th>Order</th><th>Address</th><th>Due</th><th>Why deferred</th></tr></thead><tbody>
-    ${data.deferred.map(d => `<tr><td>${esc(d.id)}</td><td>${esc(d.address)}</td><td>${esc(d.due || "—")}</td><td>${esc(d.reason)}</td></tr>`).join("")}
-    </tbody></table>` : '<div class="empty">Nothing deferred — every open delivery is on a route.</div>';
+  if (fitNext && bounds.length > 1) { map.fitBounds(bounds, { padding: [30, 30] }); fitNext = false; }
 }
 
-document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
-  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
-  document.getElementById("routes").hidden = b.dataset.tab !== "routes";
-  document.getElementById("deferred").hidden = b.dataset.tab !== "deferred";
+// Controls ------------------------------------------------------------------
+let timer = 0;
+const replanSoon = () => { clearTimeout(timer); timer = setTimeout(replan, 120); };
+[["drivers", "drivers"], ["service", "serviceMin"], ["speed", "speed"], ["day", "dayHours"]].forEach(([id, key]) => {
+  const el = $(id);
+  el.value = settings[key];
+  el.oninput = () => {
+    const v = parseFloat(el.value);
+    if (!(v >= +el.min && v <= +el.max)) return;
+    settings[key] = v; save(); replanSoon();
+  };
 });
-document.getElementById("file").onchange = e => {
-  const f = e.target.files[0];
-  if (f) f.text().then(t => render(JSON.parse(t))).catch(err => alert("Could not read file: " + err));
+$("depotReset").onclick = () => { settings.depot = DEFAULTS.depot; save(); fitNext = true; replan(); };
+$("loop").onchange = () => {
+  settings[settings.picked.length ? "loopPicked" : "loopArea"] = $("loop").checked;
+  save(); replan();
 };
-fetch("routes.json", { cache: "no-store" })
+$("order").onchange = () => { settings.order = $("order").value; save(); replan(); };
+$("start").onchange = () => { settings.startId = $("start").value || null; save(); replan(); };
+$("clearPick").onclick = () => { settings.picked = []; settings.startId = null; save(); fitNext = true; drawPicked(); replan(); };
+
+// Terminal search: terminal ID, merchant name or address.
+let hits = [], hl = 0;
+function search(q) {
+  q = q.trim().toUpperCase();
+  hits = [];
+  if (q.length >= 2) for (const s of data.stops) {
+    const t = s.terminals.find(t => t.id.includes(q));
+    if (t || s.merchants.some(m => m.includes(q)) || s.address.toUpperCase().includes(q)) hits.push({ s, t });
+    if (hits.length >= 12) break;
+  }
+  hl = 0;
+  $("results").innerHTML = hits.map(({ s, t }, i) => `<button data-i="${i}" class="${i === hl ? "hl" : ""}">
+      <div class="addr">${isPicked(s) ? "✓ " : ""}${esc(s.merchants.join(" · "))}</div>
+      <div class="sub">${t ? `<b>${esc(t.id)}</b> · ` : ""}${s.terminals.length} terminal${s.terminals.length > 1 ? "s" : ""} · ${esc(s.address)}, ${esc(s.parish)}</div>
+    </button>`).join("") || (q.length >= 2 ? '<div class="sub" style="padding:8px 10px">No matching terminals</div>' : "");
+  $("results").querySelectorAll("button").forEach(b => b.onmousedown = e => { e.preventDefault(); choose(+b.dataset.i); });
+}
+function choose(i) {
+  const h = hits[i];
+  if (!h) return;
+  togglePick(h.s, h.t && h.t.id);
+  $("search").value = ""; search("");
+}
+$("search").oninput = e => search(e.target.value);
+$("search").onblur = () => setTimeout(() => $("results").innerHTML = "", 100);
+$("search").onkeydown = e => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    hl = (hl + (e.key === "ArrowDown" ? 1 : hits.length - 1)) % Math.max(hits.length, 1);
+    $("results").querySelectorAll("button").forEach((b, i) => b.classList.toggle("hl", i === hl));
+  } else if (e.key === "Enter") { e.preventDefault(); choose(hl); }
+  else if (e.key === "Escape") { $("search").value = ""; search(""); }
+};
+
+function drawPicked() {
+  const picked = settings.picked.filter(p => byId[p.s]);
+  const on = picked.length > 0;
+  $("picked").innerHTML = picked.map((p, i) => `<button class="chip on" data-s="${esc(p.s)}" title="Remove">
+    ${i + 1}. ${esc(byId[p.s].merchants[0])} · ${esc(p.t)} ✕</button>`).join("");
+  $("picked").querySelectorAll(".chip").forEach(b => b.onclick = () => togglePick(byId[b.dataset.s]));
+  $("pickOpts").hidden = !on;
+  $("clearPick").hidden = !on;
+  $("pickNote").textContent = on ? `· routing only these ${picked.length}` : "· or route whole parishes below";
+  $("start").innerHTML = '<option value="">Depot</option>' + picked.map((p, i) =>
+    `<option value="${esc(p.s)}"${p.s === settings.startId ? " selected" : ""}>${i + 1}. ${esc(byId[p.s].merchants[0])}</option>`).join("");
+  $("order").value = settings.order;
+  $("parishes").classList.toggle("off", on);
+  $("parishNote").textContent = on ? "· not used while terminals are selected" : "";
+}
+
+function drawParishes() {
+  const counts = {};
+  data.stops.forEach(s => counts[s.parish] = (counts[s.parish] || 0) + 1);
+  const chosen = new Set(settings.parishes);
+  $("parishes").innerHTML = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([p, c]) =>
+    `<button class="chip${chosen.has(p) ? " on" : ""}" data-p="${esc(p)}">${esc(p)} <span>${c}</span></button>`).join("");
+  $("parishes").querySelectorAll(".chip").forEach(b => b.onclick = () => {
+    const p = b.dataset.p;
+    settings.parishes = chosen.has(p) ? settings.parishes.filter(x => x !== p) : [...settings.parishes, p];
+    save(); fitNext = true; drawParishes(); replanSoon();
+  });
+}
+$("allP").onclick = () => { settings.parishes = [...new Set(data.stops.map(s => s.parish))]; save(); fitNext = true; drawParishes(); replan(); };
+$("noneP").onclick = () => { settings.parishes = []; save(); drawParishes(); replan(); };
+
+fetch("stops.json", { cache: "no-store" })
   .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then(render)
-  .catch(() => document.getElementById("meta").textContent = "No routes.json found — run route_planner.py, or open a file below.");
+  .then(d => {
+    data = d;
+    net = roadNetwork(d.hubs, d.roads);
+    d.stops.forEach(s => byId[s.id] = s);
+    // Stop ids are positional and change when the data is rebuilt; terminal ids don't, so re-resolve saved picks.
+    const byTerminal = {};
+    d.stops.forEach(s => s.terminals.forEach(t => byTerminal[t.id] = s.id));
+    const oldStart = settings.startId;
+    settings.startId = null;
+    settings.picked = settings.picked.map(p => {
+      const s = byTerminal[p.t];
+      if (s && p.s === oldStart) settings.startId = s;
+      return { s, t: p.t };
+    }).filter(p => p.s);
+    // Many stops share a town-centre coordinate; fan them out so every pin is visible.
+    const seen = {};
+    d.stops.forEach(s => {
+      s.node = net.node([s.lat, s.lon]);
+      const key = `${s.lat},${s.lon}`, n = seen[key] = (seen[key] || 0) + 1;
+      const r = n > 1 ? 0.0006 * Math.sqrt(n - 1) : 0, a = n * 2.39996;
+      s.show = [s.lat + r * Math.sin(a), s.lon + r * Math.cos(a)];
+    });
+    const terminals = d.stops.reduce((a, s) => a + s.terminals.length, 0);
+    $("meta").textContent = `${terminals} terminals at ${d.stops.length} locations · ${d.sources.join(", ")} · updated ${d.generated_at.replace("T", " ")}`;
+    drawParishes();
+    drawPicked();
+    replan();
+  })
+  .catch(() => $("meta").textContent = "Could not load stops.json — run build_data.py.");
 </script>
 </body>
 </html>

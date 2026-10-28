@@ -1,48 +1,50 @@
-# Delivery Routes
+# Driver Routes
 
-`route_planner.py` reads a deliveries CSV, decides what should go out today, groups stops by driver, and orders each driver's route. It writes `dashboard/routes.json`, which the static dashboard in `dashboard/` reads and shows on a map.
+Plans daily driver routes to the merchant terminals in `data/*.csv` (Jamaica) and shows them on a map. Planning runs live in the browser: change the number of drivers, the parishes to visit, the depot or the time per stop, and the routes are re-optimised instantly.
 
-## Run
+## Update the data
 
 ```bash
-python route_planner.py deliveries.csv --drivers 3 --capacity 35 --depot 51.5072,-0.1276 --driver-names "Ana,Ben,Cy"
+python build_data.py        # reads every CSV in data/, writes dashboard/stops.json
 ```
 
-| Flag | Meaning | Default |
-|---|---|---|
-| `--drivers` | Number of vehicles | 3 |
-| `--capacity` | Load per vehicle, in the CSV's quantity unit | 50 |
-| `--max-stops` | Most stops one driver can take | 25 |
-| `--depot` | `lat,lon` where routes start and end | centre of all deliveries |
-| `--horizon` | Also include deliveries due in the next N days | 0 |
-| `--today` | Plan for a different date (`YYYY-MM-DD`) | today |
-| `--speed`, `--service-min` | Average km/h, and minutes spent at each stop (used for ETAs) | 30, 5 |
-| `--roads` | Road-network edges CSV, which turns on Dijkstra | off |
+- Terminals at the same address and parish (e.g. a merchant's JMD and USD terminals) become one stop.
+- Rows with `Physical Location? = N` are skipped. A blank value inherits the row above (the USD twin of a JMD terminal).
+- Addresses are geocoded offline by `jamaica_geo.py` to an area, Kingston postal district, town or parish centre. Where the address names a town in a different parish than the `City` column, the stop is routed to the parish in the address and tagged **APPROX** in the dashboard.
 
-## CSV columns
+Commit and push `dashboard/stops.json` after re-running to update the live site.
 
-Headers are matched loosely, so `Latitude`, `lat` and `y` all work. Only latitude and longitude are required.
+## Using the dashboard
 
-id · customer · address · postcode/zone · **latitude** · **longitude** · qty/packages/weight · priority (1–3 or high/normal/low) · due date · status
+- **Drivers / Min per stop / Avg km/h / Day (hrs):** planning inputs. Routes over the working day are flagged, with a suggested driver count.
+- **Depot:** drag the **D** pin. Defaults to New Kingston.
+- **Parishes:** choose which parishes to visit today.
+- **Select terminals:** search by terminal ID, merchant or address, or use **Add to selection** on a map pin. While terminals are selected, only those stops are routed and the parish filter is ignored.
+  - **Start from:** the depot or any selected stop. Two selected terminals give a simple A→B route.
+  - **Order:** *Recommended* is the shortest order the planner finds. *As I selected them* keeps your order. Each route shows the distance of the other order for comparison.
+  - Uses as few drivers as fit the working day, up to the **Drivers** setting.
+- **Return to start at the end:** off means the route ends at the last stop, and the planner picks the best stop to finish on. This setting is remembered separately for parish routes (default on) and selections (default off).
+- **Driver names:** click a name to rename it.
+- Settings and names are saved in each browser.
+
+### Navigation
+
+- **Google Maps:** each route has links that open the whole route in order. Google allows 9 waypoints per link, so a route is split into parts of 10 stops.
+- **Waze and Apple Maps:** their links only support one destination, so every stop has its own Google Maps, Waze and Apple Maps buttons. Drivers tap them in order.
+- Links search for the merchant name and address, which is more precise than the town-level map pins.
 
 ## How it plans
 
-1. **Select.** Drops delivered and cancelled orders, and anything due after the horizon. If the fleet can't carry everything, it keeps overdue orders first, then those due soonest, then the highest priority. The rest are shown as deferred, each with a reason.
-2. **Group.** Uses the sweep algorithm: it sorts stops by bearing from the depot and cuts them into wedges, one per driver, balanced by load and limited by capacity.
-3. **Order.** Finds the shortest Hamiltonian cycle (depot → each stop once → depot) for each driver. Routes of up to 12 stops are solved exactly with Held-Karp dynamic programming. Longer routes use nearest-neighbour followed by 2-opt.
-4. **Distances.** Uses straight-line (haversine) distance by default. If you pass `--roads edges.csv` (`from_lat,from_lon,to_lat,to_lon[,distance_km][,oneway]`), it runs Dijkstra from every stop over the road graph. Those real shortest-path distances then feed the route ordering, and the map draws the actual road paths.
+1. **Distances:** short hops use straight-line distance × 1.3. Longer hops follow the main-road network between towns (`HUBS`/`ROADS` in `jamaica_geo.py`), so routes go around the mountains rather than over them.
+2. **Split between drivers:** sweeps around the depot so each driver gets a compact area. The boundaries are then shifted until working days are as even as possible.
+3. **Order each route:** routes of up to 12 stops are solved exactly with Held-Karp. Longer routes use nearest-neighbour, then 2-opt and Or-opt until no shorter tour is found.
 
-## Deploy the dashboard to Vercel
+## Deploy (Vercel)
 
-```bash
-python route_planner.py deliveries.csv ...   # regenerates dashboard/routes.json
-cd dashboard
-npx vercel login        # first time only
-npx vercel --prod
-```
+In the Vercel project settings, set **Root Directory** to `dashboard`, set **Framework Preset** to **Other**, and leave the build, output and install commands empty. No API keys are needed: the map uses OpenStreetMap tiles.
 
-Re-run both commands whenever the CSV changes. Run `npx vercel` without `--prod` to get a preview URL instead.
+**Privacy:** `stops.json` contains merchant names, addresses and terminal IDs, and anyone with the link can read it. Turn on Vercel **Deployment Protection** (Settings → Deployment Protection), and check that it covers the production URL you share.
 
-To preview it locally, run `python -m http.server -d dashboard 8000` and open http://localhost:8000.
+## Other files
 
-Note: the published dashboard includes customer names and addresses. Turn on Vercel's Deployment Protection, or remove those fields, before you share the link.
+`route_planner.py` is the earlier command-line planner for CSVs that already have latitude and longitude. The dashboard no longer uses it.

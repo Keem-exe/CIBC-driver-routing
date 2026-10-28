@@ -154,9 +154,8 @@ def select_deliveries(rows, today, horizon_days, fleet_capacity):
             load += r["qty"]
         else:
             deferred.append({**r, "reason": "fleet capacity reached"})
-    for r in chosen:
-        r["overdue"] = bool(r["due"] and r["due"] < today)
-    return chosen, deferred
+    # Copies, so planning several fleet sizes from the same rows never leaks state.
+    return [{**r, "overdue": bool(r["due"] and r["due"] < today)} for r in chosen], deferred
 
 
 # --------------------------------------------------------------------------
@@ -378,41 +377,11 @@ def maps_link(depot, stops):
             f"&origin={origin}&destination={origin}&waypoints={'|'.join(pts)}")
 
 
-def main():
-    ap = argparse.ArgumentParser(description="Plan delivery routes from a CSV.")
-    ap.add_argument("csv", help="deliveries CSV")
-    ap.add_argument("--drivers", type=int, default=3, help="number of drivers (default 3)")
-    ap.add_argument("--driver-names", help="comma-separated names, e.g. 'Ana,Ben,Cy'")
-    ap.add_argument("--capacity", type=float, default=50, help="load per vehicle, in the CSV's qty unit")
-    ap.add_argument("--max-stops", type=int, default=25, help="max stops per driver")
-    ap.add_argument("--depot", help="'lat,lon' of the depot (default: centre of deliveries)")
-    ap.add_argument("--horizon", type=int, default=0, help="include deliveries due within N days (default 0 = today/overdue/undated)")
-    ap.add_argument("--today", help="override today's date, YYYY-MM-DD")
-    ap.add_argument("--speed", type=float, default=30, help="average speed km/h for time estimates")
-    ap.add_argument("--service-min", type=float, default=5, help="minutes spent at each stop")
-    ap.add_argument("--roads", help="optional road-network edges CSV; enables Dijkstra distances")
-    ap.add_argument("--out", default=str(Path(__file__).parent / "dashboard" / "routes.json"))
-    args = ap.parse_args()
-
-    today = date.fromisoformat(args.today) if args.today else date.today()
-    rows, skipped, cols = read_deliveries(args.csv)
-    print(f"Read {len(rows)} deliveries ({len(skipped)} skipped). Column map: "
-          + ", ".join(f"{k}={v}" for k, v in cols.items() if v))
-
-    to_deliver, deferred = select_deliveries(rows, today, args.horizon, args.drivers * args.capacity)
-
-    if args.depot:
-        depot = tuple(float(x) for x in args.depot.split(","))
-    elif rows:
-        depot = (sum(r["lat"] for r in rows) / len(rows), sum(r["lon"] for r in rows) / len(rows))
-    else:
-        sys.exit("No deliveries with coordinates found.")
-
-    groups, overflow = sweep_groups(to_deliver, depot, args.drivers, args.capacity, args.max_stops)
+def plan_routes(rows, depot, drivers, names, graph, today, args):
+    """Plan one fleet size. Returns the per-plan part of routes.json."""
+    to_deliver, deferred = select_deliveries(rows, today, args.horizon, drivers * args.capacity)
+    groups, overflow = sweep_groups(to_deliver, depot, drivers, args.capacity, args.max_stops)
     deferred += overflow
-
-    graph = RoadGraph(args.roads) if args.roads else None
-    names = [n.strip() for n in args.driver_names.split(",")] if args.driver_names else []
 
     routes = []
     for gi, group in enumerate(groups):
@@ -426,7 +395,7 @@ def main():
         tour, method = solve_cycle(list(range(len(points))), m)
         dist = tour_length(tour, m)
 
-        ordered, eta, clock = [], [], 0.0
+        ordered, clock = [], 0.0
         for a, b in zip(tour, tour[1:]):
             clock += m[a][b] / args.speed * 60
             if b != 0:
@@ -449,31 +418,77 @@ def main():
             "path": line,
             "maps_url": maps_link(depot, ordered),
         })
-        print(f"  {name}: {len(ordered)} stops, {dist:.1f} km, ~{clock:.0f} min [{method}]")
 
+    return {
+        "settings": {"drivers": drivers, "capacity": args.capacity, "max_stops": args.max_stops,
+                     "horizon_days": args.horizon, "speed_kmh": args.speed,
+                     "service_min": args.service_min, "road_network": bool(graph)},
+        "summary": {
+            "planned": sum(len(r["stops"]) for r in routes),
+            "deferred": len(deferred),
+            "total_km": round(sum(r["distance_km"] for r in routes), 2),
+        },
+        "routes": routes,
+        "deferred": [serialise(d) for d in deferred],
+    }
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Plan delivery routes from a CSV.")
+    ap.add_argument("csv", help="deliveries CSV")
+    ap.add_argument("--drivers", type=int, default=3, help="driver count the dashboard opens with (default 3)")
+    ap.add_argument("--max-drivers", type=int, default=10,
+                    help="plan every fleet size from 1 to this, for the dashboard's driver picker (default 10)")
+    ap.add_argument("--driver-names", help="comma-separated default names, e.g. 'Ana,Ben,Cy' (renamable in the dashboard)")
+    ap.add_argument("--capacity", type=float, default=50, help="load per vehicle, in the CSV's qty unit")
+    ap.add_argument("--max-stops", type=int, default=25, help="max stops per driver")
+    ap.add_argument("--depot", help="'lat,lon' of the depot (default: centre of deliveries)")
+    ap.add_argument("--horizon", type=int, default=0, help="include deliveries due within N days (default 0 = today/overdue/undated)")
+    ap.add_argument("--today", help="override today's date, YYYY-MM-DD")
+    ap.add_argument("--speed", type=float, default=30, help="average speed km/h for time estimates")
+    ap.add_argument("--service-min", type=float, default=5, help="minutes spent at each stop")
+    ap.add_argument("--roads", help="optional road-network edges CSV; enables Dijkstra distances")
+    ap.add_argument("--out", default=str(Path(__file__).parent / "dashboard" / "routes.json"))
+    args = ap.parse_args()
+
+    today = date.fromisoformat(args.today) if args.today else date.today()
+    rows, skipped, cols = read_deliveries(args.csv)
+    print(f"Read {len(rows)} deliveries ({len(skipped)} skipped). Column map: "
+          + ", ".join(f"{k}={v}" for k, v in cols.items() if v))
+
+    if args.depot:
+        depot = tuple(float(x) for x in args.depot.split(","))
+    elif rows:
+        depot = (sum(r["lat"] for r in rows) / len(rows), sum(r["lon"] for r in rows) / len(rows))
+    else:
+        sys.exit("No deliveries with coordinates found.")
+
+    graph = RoadGraph(args.roads) if args.roads else None
+    names = [n.strip() for n in args.driver_names.split(",")] if args.driver_names else []
+    max_drivers = max(args.max_drivers, args.drivers)
+
+    plans = {}
+    for n in range(1, max_drivers + 1):
+        p = plan_routes(rows, depot, n, names, graph, today, args)
+        plans[str(n)] = p
+        print(f"  {n} driver(s): {p['summary']['planned']} stops, {p['summary']['total_km']:.1f} km, "
+              f"{p['summary']['deferred']} deferred")
+
+    # Shared fields live at the top; the dashboard merges them with plans[<driver count>].
     result = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "plan_date": today.isoformat(),
         "source": Path(args.csv).name,
         "depot": list(depot),
-        "settings": {"drivers": args.drivers, "capacity": args.capacity, "max_stops": args.max_stops,
-                     "horizon_days": args.horizon, "speed_kmh": args.speed,
-                     "service_min": args.service_min, "road_network": bool(graph)},
-        "summary": {
-            "total_rows": len(rows),
-            "planned": sum(len(r["stops"]) for r in routes),
-            "deferred": len(deferred),
-            "skipped": len(skipped),
-            "total_km": round(sum(r["distance_km"] for r in routes), 2),
-        },
-        "routes": routes,
-        "deferred": [serialise(d) for d in deferred],
+        "total_rows": len(rows),
         "skipped": skipped,
+        "default_drivers": args.drivers,
+        "plans": plans,
     }
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2), encoding="utf-8")
-    print(f"Planned {result['summary']['planned']} stops, deferred {len(deferred)}. Wrote {out}")
+    print(f"Planned 1-{max_drivers} drivers (dashboard opens on {args.drivers}). Wrote {out}")
 
 
 if __name__ == "__main__":
