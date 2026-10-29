@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>try { var t = JSON.parse(localStorage.getItem("theme")); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <title>Driver Routes</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -11,11 +12,23 @@
     --bg: #f6f7f9; --panel: #ffffff; --text: #16181d; --muted: #5d6573; --line: #e3e6eb;
     --chip: #eef1f5; --warn: #b45309; --danger: #b91c1c; --accent: #2563eb;
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #0f1115; --panel: #171a21; --text: #e8eaee; --muted: #9aa3b2; --line: #2a2f3a;
-            --chip: #222733; --warn: #f59e0b; --danger: #f87171; --accent: #60a5fa; }
-    .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9); }
+  :root { color-scheme: light; }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1115; --panel: #171a21; --text: #e8eaee; --muted: #9aa3b2; --line: #2a2f3a;
+    --chip: #222733; --warn: #f59e0b; --danger: #f87171; --accent: #60a5fa; --ok: #34d399;
   }
+  :root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0f1115; --panel: #171a21; --text: #e8eaee; --muted: #9aa3b2; --line: #2a2f3a;
+      --chip: #222733; --warn: #f59e0b; --danger: #f87171; --accent: #60a5fa; --ok: #34d399;
+    }
+    :root:not([data-theme="light"]) .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9); }
+  }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--panel); color: var(--text); }
+  .leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
   body { background: var(--bg); color: var(--text);
@@ -59,7 +72,7 @@
                     border-bottom: 1px solid var(--line); padding: 7px 10px; cursor: pointer; }
   .results button:hover, .results button.hl { background: var(--chip); }
   .picked .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pickbtn { margin-top: 6px; font-size: 12px; color: var(--accent); background: none; border: 1px solid #ccd;
+  .pickbtn { margin-top: 6px; font-size: 12px; color: var(--accent); background: none; border: 1px solid var(--line);
              border-radius: 6px; padding: 3px 8px; cursor: pointer; }
 
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px 20px 4px; }
@@ -117,13 +130,6 @@
   .depot { width: 30px; height: 30px; border-radius: 6px; background: #16181d; color: #fff; cursor: grab;
            font: 700 13px/30px system-ui; text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
   .popup .nav { margin-top: 6px; }
-  @media (max-width: 800px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: 45vh auto; height: auto; }
-    #map { height: 45vh; order: -1; position: sticky; top: 0; z-index: 1; }
-    aside { border-right: 0; }
-    .fields, .kpis { grid-template-columns: repeat(2, 1fr); }
-    header, .controls, .kpis, .list { padding-left: 16px; padding-right: 16px; }
-  }
   @media print {
     #map, .controls, .actions, .nav { display: none; }
     .app { display: block; } .body { display: block !important; }
@@ -251,6 +257,47 @@
     dialog.modal.wide { height: calc(100vh - 24px); }
     #btable th:nth-child(4), #btable td:nth-child(4), #btable th:nth-child(7), #btable td:nth-child(7) { display: none; }
   }
+  .hbtns { display: flex; gap: 6px; }
+  #themeBtn { min-width: 38px; padding: 5px 8px; }
+  #tabbar { display: none; }
+  @media (max-width: 800px) {
+    html, body { height: auto; }
+    .app { display: block; height: auto; }
+    aside { display: block; border-right: 0; overflow: visible; min-height: 100dvh; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+    header { position: static; padding: 12px 16px 10px; }
+    h1 { font-size: 17px; }
+    .htop { flex-wrap: wrap; }
+    .fields { grid-template-columns: repeat(2, 1fr); }
+    .kpis { grid-template-columns: repeat(2, 1fr); padding-left: 16px; padding-right: 16px; }
+    .list, .advice { padding-left: 16px; padding-right: 16px; }
+    input, select, textarea { font-size: 16px !important; }   /* stops iOS zooming into fields */
+    .field input { padding: 9px 10px; }
+    .btn, .link, .chip, .actions a, .actions button, .nav a, .results button { min-height: 40px; }
+    .link { padding: 6px 4px; }
+    .tip { width: 22px; height: 22px; font-size: 12px; }
+    .stops li { padding: 12px; }
+    .nav a { display: inline-flex; align-items: center; padding: 6px 12px; }
+    .results { position: fixed; left: 12px; right: 12px; top: auto; max-height: 40vh; }
+    #map { display: none; height: calc(100dvh - 60px - env(safe-area-inset-bottom)); position: relative; }
+    body[data-view="plan"] .resulthead, body[data-view="plan"] .kpis, body[data-view="plan"] .advice, body[data-view="plan"] .list,
+    body[data-view="routes"] .controls { display: none; }
+    body[data-view="map"] aside { display: none; }
+    body[data-view="map"] #map { display: block; }
+    #tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 2000; background: var(--panel);
+              border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+    #tabbar button { flex: 1; background: none; border: 0; padding: 8px 0 6px; display: flex; flex-direction: column; align-items: center;
+                     gap: 1px; font-size: 12px; font-weight: 600; color: var(--muted); position: relative; min-height: 56px; cursor: pointer; }
+    #tabbar button i { font-style: normal; font-size: 20px; line-height: 1.1; }
+    #tabbar button[aria-selected="true"] { color: var(--accent); }
+    #tabbar button[aria-selected="true"]::before { content: ""; position: absolute; top: 0; left: 25%; right: 25%; height: 3px; background: var(--accent); border-radius: 0 0 3px 3px; }
+    #tabbar b { position: absolute; top: 4px; left: calc(50% + 8px); background: var(--accent); color: #fff; font-size: 10px; border-radius: 999px; padding: 0 5px; min-width: 16px; text-align: center; }
+    #toast { bottom: calc(76px + env(safe-area-inset-bottom)); max-width: calc(100vw - 32px); text-align: center; border-radius: 14px; }
+    .leaflet-control-zoom a { width: 36px; height: 36px; line-height: 36px; }
+    dialog.modal, dialog.modal.wide { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+    .mtools input[type=search] { min-width: 100%; }
+    .mfoot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+    #btable td, #btable th { padding: 10px 8px; }
+  }
   @media print { header, .resulthead, .mapkey, #toast, #tipbox, dialog { display: none !important; } .step { display: none; } }
 </style>
 </head>
@@ -260,7 +307,10 @@
     <header>
       <div class="htop">
         <h1>Driver Routes</h1>
-        <button class="btn ghost" id="helpBtn" type="button" aria-haspopup="dialog">? How it works</button>
+        <span class="hbtns">
+          <button class="btn ghost" id="themeBtn" type="button" aria-label="Colour theme"></button>
+          <button class="btn ghost" id="helpBtn" type="button" aria-haspopup="dialog">? How it works</button>
+        </span>
       </div>
       <div class="meta" id="meta">Loading terminals…</div>
     </header>
@@ -362,6 +412,11 @@
   <div id="map"></div>
 </div>
 
+<nav id="tabbar" aria-label="Sections">
+  <button type="button" data-v="plan" aria-selected="true"><i>⚙</i>Plan</button>
+  <button type="button" data-v="routes" aria-selected="false"><i>☰</i>Routes<b id="tabCount" hidden></b></button>
+  <button type="button" data-v="map" aria-selected="false"><i>⌖</i>Map</button>
+</nav>
 <div id="tipbox" role="tooltip" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -431,6 +486,7 @@
   <div class="mfoot"><span class="spacer"></span><button class="btn" type="button" data-close>Got it, let's go</button></div>
 </dialog>
 <script>
+const isMobile = matchMedia("(max-width: 800px)");
 const COLORS = ["#2563eb", "#d97706", "#059669", "#db2777", "#7c3aed", "#0891b2", "#dc2626", "#65a30d", "#c026d3", "#475569"];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmtMin = m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : `${m}m`; };
@@ -869,6 +925,7 @@ $("findGroups").onclick = async () => {
       const g = shown[+el.dataset.i];
       el.onclick = e => {
         if (e.target.closest("button")) return selectGroup(g.stopIds);
+        if (isMobile.matches) setView("map");
         map.fitBounds(g.stops.map(s => [s.lat, s.lon]), { padding: [40, 40], maxZoom: 15 });
       };
     });
@@ -898,6 +955,7 @@ function draw(routes, stops, origin, { selecting, available }) {
   $("mode").innerHTML = selecting
     ? `Routing <b>${nStops} selected stop${nStops === 1 ? "" : "s"}</b>. Parishes below are ignored while terminals are selected.`
     : `Routing <b>all ${stops.length} stops</b> in ${settings.parishes.length} parish${settings.parishes.length === 1 ? "" : "es"}. Select terminals instead to route just those.`;
+  $("tabCount").textContent = nStops; $("tabCount").hidden = !nStops;
   $("depotNote").textContent = origin.stop ? `Not used right now: routes start from ${origin.stop.merchants[0]}.` : "";
 
   const dayMin = settings.dayHours * 60;
@@ -981,6 +1039,7 @@ function draw(routes, stops, origin, { selecting, available }) {
     card.querySelectorAll("li[data-key]").forEach(li => li.onclick = e => {
       if (e.target.closest("a")) return;
       const m = markers[li.dataset.key];
+      if (isMobile.matches) setView("map");
       map.setView(m.getLatLng(), Math.max(map.getZoom(), 14)); m.openPopup();
     });
     const copy = card.querySelector("[data-copy]");
@@ -1016,7 +1075,7 @@ const replanSoon = () => { clearTimeout(timer); timer = setTimeout(replan, 120);
 });
 function resetDepot() { settings.depot = DEFAULTS.depot; save(); fitNext = true; replan(); toast("Depot moved back to New Kingston"); }
 $("depotReset").onclick = resetDepot;
-$("depotFind").onclick = () => { depotSeen(); map.setView(settings.depot, Math.max(map.getZoom(), 12)); depotMarker.openPopup(); };
+$("depotFind").onclick = () => { depotSeen(); if (isMobile.matches) setView("map"); map.setView(settings.depot, Math.max(map.getZoom(), 12)); depotMarker.openPopup(); };
 $("loop").onchange = () => {
   settings[settings.picked.length ? "loopPicked" : "loopArea"] = $("loop").checked;
   save(); replan();
@@ -1275,8 +1334,36 @@ document.querySelectorAll("#btable th[data-k]").forEach(th => {
 $("bclear").onclick = () => { settings.picked = []; settings.startId = null; save(); drawPicked(); replanSoon(); bRefresh(); };
 bdlg.addEventListener("close", () => {
   const n = settings.picked.length;
-  if (n) toast(`${n} stop${n === 1 ? "" : "s"} selected. Scroll down for the routes.`);
+  if (n && isMobile.matches) setView("routes");
+  else if (n) toast(`${n} stop${n === 1 ? "" : "s"} selected. Scroll down for the routes.`);
 });
+
+// ---------------------------------------------------------------------------
+// Mobile tabs (Plan / Routes / Map) and colour theme
+// ---------------------------------------------------------------------------
+function setView(v) {
+  document.body.dataset.view = v;
+  document.querySelectorAll("#tabbar button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.v === v)));
+  window.scrollTo(0, 0);
+  if (v === "map") setTimeout(() => map.invalidateSize(), 60);
+}
+document.querySelectorAll("#tabbar button").forEach(b => b.onclick = () => setView(b.dataset.v));
+isMobile.addEventListener("change", () => { setView("plan"); setTimeout(() => map.invalidateSize(), 60); });
+setView("plan");
+
+const THEMES = { auto: ["◐", "Theme: follows your device. Tap for light."], light: ["☀", "Theme: light. Tap for dark."], dark: ["☾", "Theme: dark. Tap to follow your device."] };
+let theme = store.get("theme", "auto");
+function applyTheme() {
+  if (!THEMES[theme]) theme = "auto";
+  theme === "auto" ? delete document.documentElement.dataset.theme : document.documentElement.dataset.theme = theme;
+  $("themeBtn").textContent = THEMES[theme][0]; $("themeBtn").title = THEMES[theme][1];
+  $("themeBtn").setAttribute("aria-label", THEMES[theme][1]);
+}
+$("themeBtn").onclick = () => {
+  theme = { auto: "light", light: "dark", dark: "auto" }[theme];
+  store.set("theme", theme); applyTheme(); toast(THEMES[theme][1].split(".")[0]);
+};
+applyTheme();
 </script>
 </body>
 </html>
