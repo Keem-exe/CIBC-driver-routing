@@ -30,7 +30,7 @@ Commit and push `dashboard/stops.json` after re-running to update the live site.
 ### Navigation
 
 - **Google Maps:** each route has links that open the whole route in order. Google allows 9 waypoints per link, so a route is split into parts of 10 stops.
-- **Waze and Apple Maps:** their links only support one destination, so every stop has its own Google Maps, Waze and Apple Maps buttons. Drivers tap them in order.
+- **Waze and Apple Maps:** their links only support one destination, so every stop has its own Google Maps, Bing Maps, Waze and Apple Maps buttons. Drivers tap them in order. Use Bing Maps when Google can't find an address (e.g. `MINXIN TOOLS LIMITED, UNIT 3, 28 VICTORIA, AVENUE, CSO`); Bing also has whole-route links like Google.
 - Links search for the merchant name and address, which is more precise than the town-level map pins.
 
 ## How it plans

@@ -716,10 +716,12 @@ const enc = encodeURIComponent;
 const nav = {
   google: s => `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${enc(placeText(s))}`,
   waze: s => `https://waze.com/ul?q=${enc(placeText(s))}&navigate=yes`,
-  apple: s => `https://maps.apple.com/?daddr=${enc(placeText(s))}&dirflg=d`
+  apple: s => `https://maps.apple.com/?daddr=${enc(placeText(s))}&dirflg=d`,
+  bing: s => `https://www.bing.com/maps?rtp=~adr.${enc(placeText(s))}&mode=D`
 };
 const navLinks = s => `<div class="nav">
   <a href="${nav.google(s)}" target="_blank" rel="noopener">Google Maps</a>
+  <a href="${nav.bing(s)}" target="_blank" rel="noopener" title="Try this when Google Maps can't find the address">Bing Maps</a>
   <a href="${nav.waze(s)}" target="_blank" rel="noopener">Waze</a>
   <a href="${nav.apple(s)}" target="_blank" rel="noopener">Apple Maps</a></div>`;
 
@@ -735,7 +737,8 @@ function googleRouteParts(origin, visits, closed) {
         : `${from === to ? `stop ${from}` : `stops ${from}–${to}`}${end > visits.length ? " → start" : ""}`,
       url: "https://www.google.com/maps/dir/?api=1&travelmode=driving"
         + `&origin=${enc(seg[0])}&destination=${enc(seg[seg.length - 1])}`
-        + (seg.length > 2 ? `&waypoints=${seg.slice(1, -1).map(enc).join("%7C")}` : "")
+        + (seg.length > 2 ? `&waypoints=${seg.slice(1, -1).map(enc).join("%7C")}` : ""),
+      bing: "https://www.bing.com/maps?mode=D&rtp=" + seg.map(p => `adr.${enc(p)}`).join("~")
     });
   }
   return parts;
@@ -1019,9 +1022,11 @@ function draw(routes, stops, origin, { selecting, available }) {
           : `<b>Recommended order</b>: ${r.km.toFixed(1)} km${r.altKm - r.km > 0.05 ? `, ${(r.altKm - r.km).toFixed(1)} km shorter than the order you selected them in` : " — same as your selection order"}.`}</div>`}
         <div class="hint" style="padding-top:${r.altKm == null ? 10 : 0}px">${origin.stop ? `Starts at ${esc(origin.stop.merchants[0])}` : "Starts at the depot"}${r.closed ? " and returns there" : `, ends at stop ${r.visits.length}`}.</div>
         <div class="actions" style="padding-top:0">${googleRouteParts(origin, r.visits, r.closed).map(p =>
-          `<a href="${p.url}" target="_blank" rel="noopener">Google Maps: ${p.label}</a>`).join("")}
+          `<a href="${p.url}" target="_blank" rel="noopener">Google Maps: ${p.label}</a>
+           <a href="${p.bing}" target="_blank" rel="noopener">Bing Maps: ${p.label}</a>`).join("")}
           <button data-solo>Show only this route</button><button data-copy>Copy list</button></div>
         <div class="hint">Waze and Apple Maps take one destination per link — use the buttons on each stop, in order.</div>
+        <div class="hint">Tip: if Google Maps can't find an address, use <b>Bing Maps</b> — it often locates Jamaican addresses Google misses.</div>
         <ul class="stops">${r.visits.map(v => {
           const s = v.stop, approx = s.precision === "parish" || s.parish_mismatch;
           return `<li data-key="${i}-${v.seq}">
