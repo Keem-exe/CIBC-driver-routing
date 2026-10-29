@@ -185,6 +185,8 @@
   .chip { min-height: 26px; }
 
   .resulthead { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 0; }
+  .gbar { padding: 10px 20px 0; }
+  .gbar .sub { margin-top: 4px; }
   .resulthead h2 { margin: 0; font-size: 15px; }
   .kpis { padding-top: 10px; }
   .kpi span { display: flex; align-items: center; gap: 4px; }
@@ -262,6 +264,8 @@
   #tabbar { display: none; }
   @media (max-width: 800px) {
     html, body { height: auto; }
+    .gbar { padding-left: 16px; padding-right: 16px; }
+    body[data-view="plan"] .gbar { display: none; }
     .app { display: block; height: auto; }
     aside { display: block; border-right: 0; overflow: visible; min-height: 100dvh; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
     header { position: static; padding: 12px 16px 10px; }
@@ -372,10 +376,7 @@
             <button type="button" class="tip" data-tip="Start from: begin at the depot or at any selected terminal. Order: “Recommended” lets the planner find the shortest order; “As I selected them” keeps the order you picked, and shows how much distance that costs or saves.">i</button>
           </div>
           <div id="gbox" hidden>
-            <div class="row"><button class="btn" id="refine" type="button">Optimise with Google roads</button>
-              <button type="button" class="tip" data-tip="The instant plan uses estimated road distances. This asks Google for real driving times between your stops and re-orders the route. It needs an internet connection and has a daily lookup limit.">i</button>
-              <span class="sub" id="gstatus"></span></div>
-            <div class="row" style="margin-top:8px">Nearby terminals you could add <span class="sub" id="sugNote"></span></div>
+            <div class="row">Nearby terminals you could add <span class="sub" id="sugNote"></span></div>
             <div class="chips" id="suggest"></div>
           </div>
 
@@ -404,6 +405,11 @@
     <div class="resulthead">
       <h2>Routes</h2>
       <button class="link" id="printBtn" type="button">🖨 Print / save as PDF</button>
+    </div>
+    <div class="gbar" id="gbar" hidden>
+      <div class="row"><button class="btn" id="refine" type="button">Optimise with Google roads</button>
+        <button type="button" class="tip" data-tip="The instant plan uses estimated road distances. This asks Google for real driving times and re-orders each route to match. Works for routes of up to 24 stops (add drivers to shorten longer ones) and has a daily lookup limit. Needs an internet connection.">i</button></div>
+      <div class="sub" id="gstatus"></div>
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="advice" id="advice"></div>
@@ -820,9 +826,10 @@ function replan() {
   const sig = [origin.p.join(","), opts.closed, settings.serviceMin,
                ...routes.map(r => r.visits.map(v => v.stop.id).sort().join(","))].join("|");
   lastCtx = { routes, origin, selecting, sig };
-  const viaGoogle = selecting && googlePlan && googlePlan.sig === sig;
+  const viaGoogle = googlePlan && googlePlan.sig === sig;
   if (viaGoogle) routes = googlePlan.routes;
   $("gbox").hidden = !selecting;
+  $("gbar").hidden = !stops.length;
   $("gstatus").textContent = viaGoogle ? googlePlan.status : "";
   $("refine").textContent = viaGoogle ? "Re-run with Google roads" : "Optimise with Google roads";
   draw(routes, stops, origin, { selecting, available });
@@ -858,7 +865,7 @@ function decodePolyline(str) {  // Google's encoded polyline format
 }
 
 async function refine() {
-  if (!lastCtx || !lastCtx.selecting) return;
+  if (!lastCtx) return;
   const { routes, origin, sig } = lastCtx;
   const btn = $("refine");
   btn.disabled = true; $("gstatus").textContent = "Asking Google…";
@@ -875,6 +882,8 @@ async function refine() {
         km: sr.km, min: sr.workMin, method: sr.orderedBy, closed: sr.closed, altKm: sr.otherOrderKm,
         path: sr.polyline, roadSource: [...sources].join(" + ") });
     }
+    const tooBig = routes.filter(r => r.visits.length > 24).length;
+    if (tooBig) notes.add(`${tooBig} route${tooBig > 1 ? "s have" : " has"} over 24 stops, which is too many for Google, so ${tooBig > 1 ? "they use" : "it uses"} estimates. Add drivers or select fewer terminals.`);
     googlePlan = { sig, routes: out, status: `✓ ${[...sources].join(" + ")} road times · ${usage.matrixElements}/${usage.matrixCap} lookups used today${notes.size ? " · " + [...notes].join(" ") : ""}` };
     replan();
   } catch (e) {
