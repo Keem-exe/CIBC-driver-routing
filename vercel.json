@@ -1,0 +1,12 @@
+{
+  "cleanUrls": true,
+  "redirects": [
+    { "source": "/", "destination": "/dashboard/", "permanent": false }
+  ],
+  "headers": [
+    {
+      "source": "/dashboard/routes.json",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+    }
+  ]
+}

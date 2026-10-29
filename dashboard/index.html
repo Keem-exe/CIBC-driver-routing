@@ -98,6 +98,17 @@
   .tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 4px;
          margin-left: 4px; vertical-align: 1px; color: var(--warn); border: 1px solid var(--warn); }
   .tag.over { color: var(--danger); border-color: var(--danger); }
+  .btn { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer;
+         font-weight: 600; font-size: 13px; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .sug { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sug.over { opacity: .55; }
+  .glist { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+  .grp { display: flex; gap: 10px; align-items: center; justify-content: space-between; border: 1px solid var(--line);
+         border-radius: 8px; padding: 7px 10px; cursor: pointer; }
+  .grp:hover { background: var(--chip); }
+  .grp .pickbtn { margin: 0; flex: none; }
+  .row input[type=number] { width: 56px; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
   .empty { color: var(--muted); padding: 20px 0; }
   #map { height: 100%; }
   #map.picking { cursor: crosshair; }
@@ -147,9 +158,20 @@
         Start from <select id="start"></select>
         Order <select id="order"><option value="best">Recommended (shortest)</option><option value="mine">As I selected them</option></select>
       </div>
+      <div id="gbox" hidden>
+        <div class="row"><button class="btn" id="refine">Optimise with Google roads</button><span class="sub" id="gstatus"></span></div>
+        <div class="row" style="margin-top:8px">Nearby terminals you could add <span class="sub" id="sugNote"></span></div>
+        <div class="chips" id="suggest"></div>
+      </div>
       <div class="row">Parishes to visit <span id="parishNote"></span>
         <button class="link" id="allP">All</button><button class="link" id="noneP">None</button></div>
       <div class="chips" id="parishes"></div>
+      <div class="row">Recommended driver groups
+        <label>within <input type="number" id="gRadius" min="1" max="40" inputmode="decimal"> km</label>
+        <label>max <input type="number" id="gMax" min="1" max="40" inputmode="numeric"> stops</label>
+        <button class="link" id="findGroups">Find groups</button></div>
+      <div class="sub" id="gnote"></div>
+      <div class="glist" id="groups"></div>
     </section>
     <div class="kpis" id="kpis"></div>
     <div class="advice" id="advice"></div>
@@ -170,7 +192,8 @@ const store = {
 };
 const DEFAULTS = { drivers: 3, serviceMin: 15, speed: 35, dayHours: 8, parishes: ["Kingston", "Saint Andrew"],
                    depot: [18.0075, -76.7850],  // New Kingston
-                   picked: [], startId: null, order: "best", loopArea: true, loopPicked: false };
+                   picked: [], startId: null, order: "best", loopArea: true, loopPicked: false,
+                   gRadius: 6, gMax: 12 };
 let settings = { ...DEFAULTS, ...store.get("routeSettings", {}) };
 let names = store.get("driverNames", []);
 const driverName = i => names[i] || `Driver ${i + 1}`;
@@ -469,8 +492,125 @@ function replan() {
       if (Math.max(...routes.map(r => r.min)) <= settings.dayHours * 60) break;
     }
   } else routes = plan(stops, origin.p, available, settings, net, opts);
+
+  // A Google-refined plan stands in for the instant one while it is for the same stops, start and service time.
+  const sig = [origin.p.join(","), opts.closed, settings.serviceMin,
+               ...routes.map(r => r.visits.map(v => v.stop.id).sort().join(","))].join("|");
+  lastCtx = { routes, origin, selecting, sig };
+  const viaGoogle = selecting && googlePlan && googlePlan.sig === sig;
+  if (viaGoogle) routes = googlePlan.routes;
+  $("gbox").hidden = !selecting;
+  $("gstatus").textContent = viaGoogle ? googlePlan.status : "";
+  $("refine").textContent = viaGoogle ? "Re-run with Google roads" : "Optimise with Google roads";
   draw(routes, stops, origin, { selecting, available });
+  if (selecting) scheduleSuggest(picked, origin, opts.closed);
 }
+
+// ---------------------------------------------------------------------------
+// Server features (/api): Google road times, add-on suggestions, driver groups.
+// The instant planner above stays the default; these are optional and fail soft.
+// ---------------------------------------------------------------------------
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : undefined);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+let googlePlan = null, lastCtx = null;
+const startBody = origin => origin.stop ? { stopId: origin.stop.id } : { lat: origin.p[0], lon: origin.p[1] };
+const planCfg = () => ({ speedKmh: settings.speed, serviceMin: settings.serviceMin, dayHours: settings.dayHours });
+
+function decodePolyline(str) {  // Google's encoded polyline format
+  const out = []; let i = 0, lat = 0, lon = 0;
+  while (i < str.length) {
+    for (const axis of [0, 1]) {
+      let shift = 0, result = 0, b;
+      do { b = str.charCodeAt(i++) - 63; result |= (b & 31) << shift; shift += 5; } while (b >= 32);
+      const d = result & 1 ? ~(result >> 1) : result >> 1;
+      axis ? lon += d : lat += d;
+    }
+    out.push([lat / 1e5, lon / 1e5]);
+  }
+  return out;
+}
+
+async function refine() {
+  if (!lastCtx || !lastCtx.selecting) return;
+  const { routes, origin, sig } = lastCtx;
+  const btn = $("refine");
+  btn.disabled = true; $("gstatus").textContent = "Asking Google…";
+  try {
+    const out = []; let usage, notes = new Set(), sources = new Set();
+    for (const r of routes) {
+      if (!r.visits.length) { out.push(r); continue; }
+      const res = await api("/api/route", { stopIds: r.visits.map(v => v.stop.id), start: startBody(origin), closed: r.closed,
+        order: settings.order, path: true, ...planCfg() });
+      const sr = res.routes[0]; usage = res.usage;
+      if (sr.note) notes.add(sr.note);
+      sources.add(sr.distances === "google" ? "Google" : sr.distances === "mixed" ? "partly Google" : sr.legs === "google" ? "estimated order, Google path" : "estimated");
+      out.push({ visits: sr.stops.map(s => ({ stop: byId[s.id], seq: s.seq, eta: s.etaMin, legKm: s.legKm })),
+        km: sr.km, min: sr.workMin, method: sr.orderedBy, closed: sr.closed, altKm: sr.otherOrderKm,
+        path: sr.polyline, roadSource: [...sources].join(" + ") });
+    }
+    googlePlan = { sig, routes: out, status: `✓ ${[...sources].join(" + ")} road times · ${usage.matrixElements}/${usage.matrixCap} lookups used today${notes.size ? " · " + [...notes].join(" ") : ""}` };
+    replan();
+  } catch (e) {
+    $("gstatus").textContent = `Google routing unavailable: ${e.message}`;
+  } finally { btn.disabled = false; }
+}
+$("refine").onclick = refine;
+
+let sugTimer = 0, sugKey = "";
+function scheduleSuggest(picked, origin, closed) {
+  const key = [picked.map(s => s.id).join(","), origin.p, closed, settings.dayHours, settings.serviceMin, settings.speed].join("|");
+  if (key === sugKey) return;
+  sugKey = key; clearTimeout(sugTimer);
+  $("sugNote").textContent = "";
+  sugTimer = setTimeout(async () => {
+    try {
+      const r = await api("/api/suggest", { stopIds: picked.slice(0, 40).map(s => s.id), start: startBody(origin), closed, limit: 8, ...planCfg() });
+      if (key !== sugKey) return;  // selection changed while waiting
+      $("sugNote").textContent = r.suggestions.length ? "· nearest first" : "· none close by that fit the day";
+      $("suggest").innerHTML = r.suggestions.map(s => `<button class="chip sug${s.fitsDay ? "" : " over"}" data-s="${esc(s.id)}"
+        title="${esc(s.address)}, ${esc(s.parish)} · ${s.nearKm} km from your nearest stop">＋ ${esc(s.merchants[0])} <span>+${s.extraKm} km</span></button>`).join("");
+      $("suggest").querySelectorAll(".chip").forEach(b => b.onclick = () => togglePick(byId[b.dataset.s]));
+    } catch (e) {
+      $("sugNote").textContent = "· suggestions unavailable"; $("suggest").innerHTML = "";
+    }
+  }, 400);
+}
+
+function selectGroup(stopIds) {
+  settings.picked = stopIds.filter(id => byId[id]).map(id => ({ s: id, t: byId[id].terminals[0].id }));
+  settings.startId = null; save(); fitNext = true; drawPicked(); replan();
+}
+
+$("findGroups").onclick = async () => {
+  const note = $("gnote"), list = $("groups");
+  note.textContent = "Finding groups…"; list.innerHTML = "";
+  try {
+    const q = new URLSearchParams({ radiusKm: settings.gRadius, maxStops: settings.gMax, lat: settings.depot[0], lon: settings.depot[1],
+      parishes: settings.parishes.join(","), ...planCfg() });
+    const r = await api("/api/groups?" + q);
+    const shown = r.groups.slice(0, 40);
+    note.textContent = `${r.count} groups for ${settings.parishes.length ? settings.parishes.join(", ") : "all parishes"} — each fits one driver's ${settings.dayHours}h day (round trip from the depot). Click a group to see it, Select to route it.`;
+    list.innerHTML = shown.map((g, i) => `<div class="grp" data-i="${i}"><div>
+        <b>Group ${g.group}</b> · ${g.terminals} terminal${g.terminals > 1 ? "s" : ""} at ${g.stops.length} stop${g.stops.length > 1 ? "s" : ""} · ${esc(g.parishes.join(", "))}${g.overDay ? '<span class="tag over">OVER DAY</span>' : ""}${g.remote ? '<span class="tag" title="Too far for a day trip from the depot: the time shown is only the driving between these stops">REMOTE</span>' : ""}
+        <div class="sub">~${g.estKm} km · ${fmtMin(g.estWorkMin)} · within ${g.spreadKm} km of its centre</div></div>
+        <button class="pickbtn">Select</button></div>`).join("");
+    list.querySelectorAll(".grp").forEach(el => {
+      const g = shown[+el.dataset.i];
+      el.onclick = e => {
+        if (e.target.closest("button")) return selectGroup(g.stopIds);
+        map.fitBounds(g.stops.map(s => [s.lat, s.lon]), { padding: [40, 40], maxZoom: 15 });
+      };
+    });
+  } catch (e) { note.textContent = `Groups unavailable: ${e.message}`; }
+};
+[["gRadius", "gRadius"], ["gMax", "gMax"]].forEach(([id, key]) => {
+  const el = $(id); el.value = settings[key];
+  el.oninput = () => { const v = parseFloat(el.value); if (v >= +el.min && v <= +el.max) { settings[key] = v; save(); } };
+});
 
 function draw(routes, stops, origin, { selecting, available }) {
   layers.forEach(l => map.removeLayer(l));
@@ -511,7 +651,8 @@ function draw(routes, stops, origin, { selecting, available }) {
     const group = L.layerGroup().addTo(map);
     layers.push(group); routeGroups.push(group);
     if (r.visits.length) {
-      L.polyline([origin.show, ...r.visits.map(v => v.stop.show), ...(r.closed ? [origin.show] : [])],
+      L.polyline(r.path ? decodePolyline(r.path)  // drivable road path from Google
+          : [origin.show, ...r.visits.map(v => v.stop.show), ...(r.closed ? [origin.show] : [])],
         { color, weight: 3, opacity: .8 }).addTo(group);
     }
     r.visits.forEach(v => {
@@ -550,7 +691,7 @@ function draw(routes, stops, origin, { selecting, available }) {
             ${navLinks(s)}
           </li>`; }).join("")}
         </ul>
-        <div class="hint">Order: ${esc(r.method)} · road-network distances</div>`
+        <div class="hint">Order: ${esc(r.method)} · ${r.roadSource ? esc(r.roadSource) : "road-network estimate"}</div>`
         : '<div class="hint" style="padding-top:10px">No stops assigned.</div>'}</div>`;
 
     card.querySelector(".dhead").onclick = () => card.classList.toggle("open");
