@@ -839,7 +839,41 @@ function consolidate(routes, origin, opts, dayMin) {
     if (!best) break;
     list[best.i] = best.m; list.splice(best.j, 1); saved += best.gain;
   }
-  return { routes: list, from, saved };
+
+  // Whole routes may be too big to merge, but a lone outlying stop can still go to the driver already heading there.
+  const o = net.node(origin.p), nodes = r => [o, ...r.visits.map(v => v.stop.node), ...(opts.closed ? [o] : [])];
+  let moved = 0, movedKm = 0;
+  for (let pass = 0; pass < 12 && performance.now() < deadline; pass++) {
+    const cands = [];
+    list.forEach((A, a) => {
+      if (A.visits.length < 2) return;
+      const nA = nodes(A);
+      A.visits.forEach((v, i) => {
+        const sn = v.stop.node, prev = nA[i], next = nA[i + 2];
+        const leave = net.km(prev, sn) + (next ? net.km(sn, next) - net.km(prev, next) : 0);  // km A saves without it
+        list.forEach((B, b) => {
+          if (b === a) return;
+          const nB = nodes(B);
+          let add = Infinity;
+          for (let e = 0; e < nB.length - 1; e++) add = Math.min(add, net.km(nB[e], sn) + net.km(sn, nB[e + 1]) - net.km(nB[e], nB[e + 1]));
+          if (!opts.closed) add = Math.min(add, net.km(nB[nB.length - 1], sn));
+          if (leave - add >= 1.5) cands.push({ a, b, v, est: leave - add });
+        });
+      });
+    });
+    cands.sort((x, y) => y.est - x.est);
+    let done = false;
+    for (const c of cands.slice(0, 6)) {  // the estimate shortlists; the real re-plan decides
+      if (performance.now() > deadline) break;
+      const A = list[c.a], B = list[c.b];
+      const ra = plan(A.visits.filter(v => v !== c.v).map(v => v.stop), origin.p, 1, settings, net, opts)[0];
+      const rb = plan([...B.visits.map(v => v.stop), c.v.stop], origin.p, 1, settings, net, opts)[0];
+      const gain = A.km + B.km - ra.km - rb.km;
+      if (gain >= 1 && rb.min <= dayMin) { list[c.a] = ra; list[c.b] = rb; moved++; movedKm += gain; done = true; break; }
+    }
+    if (!done) break;
+  }
+  return { routes: list, from, saved, moved, movedKm };
 }
 
 function replan() {
@@ -876,7 +910,7 @@ function replan() {
   let merged = null;
   if (settings.merge && !assigned.length && !opts.pin.size && !opts.keepOrder && routes.length > 1) {
     const c = consolidate(routes, origin, opts, settings.dayHours * 60);
-    if (c.routes.length < c.from) { routes = c.routes; merged = c; }
+    if (c.routes.length < c.from || c.moved) { routes = c.routes; merged = c; }
   }
 
   // A Google-refined plan stands in for the instant one while it is for the same stops, start and service time.
@@ -1127,7 +1161,10 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
   const needed = Math.ceil(routes.reduce((a, r) => a + r.min, 0) / dayMin);
   $("advice").textContent = longest > dayMin
     ? `Routes run past a ${settings.dayHours}h day — about ${needed} drivers would fit${selecting ? "" : ", or pick fewer parishes"}.`
-    : merged ? `Merged ${merged.from} routes into ${used.length}: drivers heading the same way now share one route (saves ${merged.saved.toFixed(0)} km, every day still fits ${settings.dayHours}h). Untick "Merge overlapping routes" to keep all ${available} drivers busy.`
+    : merged ? [
+        merged.from > used.length ? `Merged ${merged.from} routes into ${used.length}: drivers heading the same way now share one route (saves ${merged.saved.toFixed(0)} km).` : "",
+        merged.moved ? `Moved ${merged.moved} outlying stop${merged.moved > 1 ? "s" : ""} to the driver already heading there (saves ${merged.movedKm.toFixed(0)} km).` : "",
+        `Every day still fits ${settings.dayHours}h. Untick "Merge overlapping routes" to keep all ${available} drivers busy.`].filter(Boolean).join(" ")
     : selecting && used.length < available ? `Using ${used.length} of ${available} drivers — the selection fits in a ${settings.dayHours}h day.` : "";
   const pinned = new Set(Object.values(settings.pin || {}));
   drawNearby(routes, origin);
