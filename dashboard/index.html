@@ -80,10 +80,6 @@
   .kpi b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .advice { padding: 6px 20px 0; font-size: 12px; color: var(--warn); }
   .advice:empty { display: none; }
-  .selbar { margin: 8px 20px 0; padding: 8px 10px; border: 1px solid var(--accent); border-radius: 8px; font-size: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
-  .selbar[hidden] { display: none; }
-  .selbar button { flex: none; font-size: 12px; cursor: pointer; }
-  @media (max-width: 760px) { .selbar { margin-left: 16px; margin-right: 16px; } }
   .nearby { margin: 8px 20px 0; padding: 8px 10px; border: 1px solid var(--warn); border-radius: 8px; font-size: 12px; }
   .nearby[hidden] { display: none; }
   .nearby .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 4px 0; }
@@ -153,17 +149,8 @@
   .htop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .btn.ghost { background: none; color: var(--accent); border: 1px solid var(--line); font-weight: 600; white-space: nowrap; }
   .btn.ghost:hover { background: var(--chip); }
-  .controls { padding: 0; gap: 0; }
-  .step { border-bottom: 1px solid var(--line); }
-  .step > summary { list-style: none; cursor: pointer; padding: 12px 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; user-select: none; }
-  .step > summary::-webkit-details-marker { display: none; }
-  .step > summary::after { content: "▾"; margin-left: auto; color: var(--muted); transition: transform .15s; }
-  .step:not([open]) > summary::after { transform: rotate(-90deg); }
-  .step > summary em { font-style: normal; font-weight: 400; color: var(--muted); font-size: 12px; }
-  .step > summary:hover { background: var(--chip); }
   .num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px;
          display: grid; place-items: center; flex: none; }
-  .stepbody { padding: 2px 20px 16px; display: flex; flex-direction: column; gap: 12px; }
   .fields { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .field { text-transform: none; letter-spacing: 0; font-size: 12px; }
   .field > span { display: flex; align-items: center; gap: 5px; }
@@ -266,17 +253,61 @@
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
   @media (max-width: 800px) {
     .btn, .link, .chip, .actions a, .actions button { min-height: 36px; }
-    .step > summary, .stepbody, .resulthead { padding-left: 16px; padding-right: 16px; }
+    .panel[data-step="1"], .panel[data-step="2"] { padding-left: 16px; padding-right: 16px; }
+    .resulthead, .scope, .tipline { padding-left: 16px; padding-right: 16px; }
+    .stepper { margin: 8px -4px -10px; }
     dialog.modal.wide { height: calc(100vh - 24px); }
     #btable th:nth-child(4), #btable td:nth-child(4), #btable th:nth-child(7), #btable td:nth-child(7) { display: none; }
   }
-  .hbtns { display: flex; gap: 6px; }
+  .hbtns { display: flex; gap: 6px; align-items: center; }
   #themeBtn { min-width: 38px; padding: 5px 8px; }
+
+  /* ---- Wizard: one step at a time ---- */
+  .stepper { display: flex; gap: 4px; margin: 10px -8px -12px; }
+  .stepper button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; background: none; border: 0;
+                    border-bottom: 3px solid transparent; padding: 8px 4px 9px; color: var(--muted); font-weight: 600; cursor: pointer; }
+  .stepper button:hover { color: var(--text); }
+  .stepper .num { background: var(--chip); color: var(--muted); }
+  .stepper button[aria-current="step"] { color: var(--text); border-bottom-color: var(--accent); }
+  .stepper button[aria-current="step"] .num { background: var(--accent); color: #fff; }
+  .stepper button.done .num { background: var(--ok); color: #fff; }
+  .panel { display: none; padding: 18px 20px 24px; flex-direction: column; gap: 14px; }
+  body[data-step="1"] .panel[data-step="1"], body[data-step="2"] .panel[data-step="2"], body[data-step="3"] .panel[data-step="3"] { display: flex; }
+  .panel[data-step="3"] { padding: 0; gap: 0; }
+  .phead { font-size: 17px; margin: 0; }
+  .panel > .sub { margin-top: -8px; }
+  .fields.one { grid-template-columns: 1fr; }
+  .fields.one .field input { font-size: 22px; padding: 8px 12px; }
+  .pane { display: flex; flex-direction: column; gap: 12px; }
+  .pane[hidden], .row[hidden], .btn[hidden], .link[hidden] { display: none; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: var(--chip); border-radius: 10px; padding: 3px; }
+  .seg button { border: 0; background: none; border-radius: 8px; padding: 9px 6px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .seg button[aria-selected="true"] { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+  .seg b { background: var(--accent); color: #fff; font-size: 11px; border-radius: 999px; padding: 0 6px; margin-left: 4px; }
+  .seg b:empty { display: none; }
+  details.more { border: 1px solid var(--line); border-radius: 10px; }
+  details.more > summary { cursor: pointer; padding: 10px 12px; font-weight: 600; list-style: none; display: flex; gap: 8px; align-items: center; }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::after { content: "▾"; margin-left: auto; color: var(--muted); }
+  details.more:not([open]) > summary::after { transform: rotate(-90deg); }
+  details.more > summary em { font-style: normal; font-weight: 400; color: var(--muted); font-size: 12px; }
+  details.more > :not(summary) { margin: 0 12px 12px; }
+  details.more[open] > summary { padding-bottom: 8px; }
+  details.more > div + div, details.more > .sub + .row { margin-top: 10px; }
+  .wnav { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .btn.big { padding: 10px 16px; font-size: 14px; }
+  .scope { padding: 4px 20px 0; }
+  .tipline { padding: 10px 20px 0; }
+  .nav .alt, .actions .alt { display: none; }
+  .nav.all .alt, .actions.all .alt { display: inline-flex; }
+  .actions a, .nav a { display: inline-flex; align-items: center; }
+  .nav a.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .nav button { font-size: 12px; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+  .empty .btn { margin-top: 10px; }
   #tabbar { display: none; }
   @media (max-width: 800px) {
     html, body { height: auto; }
     .gbar { padding-left: 16px; padding-right: 16px; }
-    body[data-view="plan"] .gbar { display: none; }
     .app { display: block; height: auto; }
     aside { display: block; border-right: 0; overflow: visible; min-height: 100dvh; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
     header { position: static; padding: 12px 16px 10px; }
@@ -291,11 +322,9 @@
     .link { padding: 6px 4px; }
     .tip { width: 22px; height: 22px; font-size: 12px; }
     .stops li { padding: 12px; }
-    .nav a { display: inline-flex; align-items: center; padding: 6px 12px; }
+    .nav a, .nav button { display: inline-flex; align-items: center; padding: 6px 12px; min-height: 40px; }
     .results { position: fixed; left: 12px; right: 12px; top: auto; max-height: 40vh; }
     #map { display: none; height: calc(100dvh - 60px - env(safe-area-inset-bottom)); position: relative; }
-    body[data-view="plan"] .resulthead, body[data-view="plan"] .kpis, body[data-view="plan"] .advice, body[data-view="plan"] .nearby, body[data-view="plan"] .selbar, body[data-view="plan"] .list,
-    body[data-view="routes"] .controls { display: none; }
     body[data-view="map"] aside { display: none; }
     body[data-view="map"] #map { display: block; }
     #tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 2000; background: var(--panel);
@@ -313,7 +342,9 @@
     .mfoot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
     #btable td, #btable th { padding: 10px 8px; }
   }
-  @media print { header, .resulthead, .mapkey, #toast, #tipbox, dialog { display: none !important; } .step { display: none; } }
+  @media print { header, .resulthead, .mapkey, #toast, #tipbox, dialog, .tipline, .scope, .gbar, .nearby { display: none !important; }
+                 .panel[data-step="1"], .panel[data-step="2"] { display: none !important; } .panel[data-step="3"] { display: block !important; }
+                 .nav button { display: none; } }
 </style>
 </head>
 <body>
@@ -324,111 +355,128 @@
         <h1>Driver Routes</h1>
         <span class="hbtns">
           <button class="btn ghost" id="themeBtn" type="button" aria-label="Colour theme"></button>
-          <button class="btn ghost" id="helpBtn" type="button" aria-haspopup="dialog">? How it works</button>
+          <button class="btn ghost" id="helpBtn" type="button" aria-haspopup="dialog">? Help</button>
         </span>
       </div>
       <div class="meta" id="meta">Loading terminals…</div>
+      <nav class="stepper" id="stepper" aria-label="Planning steps">
+        <button type="button" data-step="1"><span class="num">1</span><span class="lbl">Your day</span></button>
+        <button type="button" data-step="2"><span class="num">2</span><span class="lbl">Where to go</span></button>
+        <button type="button" data-step="3"><span class="num">3</span><span class="lbl">Routes</span></button>
+      </nav>
     </header>
 
-    <section class="controls">
-      <details class="step" open>
-        <summary><span class="num">1</span>Team &amp; working day</summary>
-        <div class="stepbody">
-          <div class="fields">
-            <label class="field"><span>Drivers <button type="button" class="tip" data-tip="How many drivers you have today. The planner uses fewer when drivers would be heading the same way and one can cover both within the working day (see Merge overlapping routes).">i</button></span>
-              <input type="number" id="drivers" min="1" max="30" inputmode="numeric"></label>
-            <label class="field"><span>Minutes per stop <button type="button" class="tip" data-tip="Time spent at each merchant (parking, walking in, servicing the terminal). It is added to the driving time when working out how long a route takes.">i</button></span>
-              <input type="number" id="service" min="0" max="240" inputmode="numeric"></label>
-            <label class="field"><span>Average speed (km/h) <button type="button" class="tip" data-tip="Typical driving speed including traffic. Lower it for busy Kingston roads, raise it for open highway runs.">i</button></span>
-              <input type="number" id="speed" min="5" max="100" inputmode="numeric"></label>
-            <label class="field"><span>Day length (hours) <button type="button" class="tip" data-tip="How long one driver can work. Routes longer than this are flagged OVER DAY, and the planner tells you how many drivers would fit.">i</button></span>
-              <input type="number" id="day" min="1" max="24" step="0.5" inputmode="decimal"></label>
-          </div>
-          <label class="check"><input type="checkbox" id="merge"> Merge overlapping routes <button type="button" class="tip" data-tip="When two drivers are heading the same way and one driver can cover both within the working day, combine them into one route. Untick to spread the stops across every driver you set.">i</button></label>
-          <label class="check"><input type="checkbox" id="loop"> Return to the start at the end
-            <button type="button" class="tip" data-tip="On: each driver finishes back where they started (a round trip). Off: the route ends at the last stop and the planner chooses the best stop to finish on, which is usually shorter.">i</button></label>
+    <section class="panel" data-step="1" aria-labelledby="p1h">
+      <h2 class="phead" id="p1h">How many drivers today?</h2>
+      <div class="sub">Most days this is the only thing to change. Everything else has a sensible default.</div>
+      <div class="fields one">
+        <label class="field"><span>Drivers <button type="button" class="tip" data-tip="How many drivers you have today. The planner uses fewer when one driver can cover two routes heading the same way within the working day (see Advanced).">i</button></span>
+          <input type="number" id="drivers" min="1" max="30" inputmode="numeric"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="loop"> Drivers come back to where they started
+        <button type="button" class="tip" data-tip="On: each driver finishes back where they started (a round trip). Off: the route ends at the last stop and the planner chooses the best stop to finish on, which is usually shorter.">i</button></label>
+
+      <details class="more">
+        <summary>Working-day details <em id="dayLine"></em></summary>
+        <div class="fields">
+          <label class="field"><span>Minutes per stop <button type="button" class="tip" data-tip="Time spent at each merchant (parking, walking in, servicing the terminal). It is added to the driving time when working out how long a route takes.">i</button></span>
+            <input type="number" id="service" min="0" max="240" inputmode="numeric"></label>
+          <label class="field"><span>Average speed (km/h) <button type="button" class="tip" data-tip="Typical driving speed including traffic. Lower it for busy Kingston roads, raise it for open highway runs.">i</button></span>
+            <input type="number" id="speed" min="5" max="100" inputmode="numeric"></label>
+          <label class="field"><span>Day length (hours) <button type="button" class="tip" data-tip="How long one driver can work. Routes longer than this are flagged OVER DAY, and the planner tells you how many drivers would fit.">i</button></span>
+            <input type="number" id="day" min="1" max="24" step="0.5" inputmode="decimal"></label>
         </div>
       </details>
-
-      <details class="step" open>
-        <summary><span class="num">2</span>Starting point</summary>
-        <div class="stepbody">
-          <div class="callout">
-            <span class="dbadge">D</span>
-            <div>
-              <b>Depot</b> <button type="button" class="tip" data-tip="The depot is where every driver's day starts (and ends, if “Return to the start” is ticked). It is the black D pin on the map. Drag it anywhere in Jamaica and the routes update instantly. Prefer to start from a customer instead? Select terminals below and use “Start from”.">i</button>
-              <span class="sub">— where every route starts</span>
-              <div class="sub">Currently near <b id="depotLabel"></b>. <span id="depotNote"></span></div>
-              <div class="sub">Drag the black <b>D</b> pin on the map to move it.</div>
-              <div class="btnrow"><button class="link" id="depotFind" type="button">Show on map</button>
-                <button class="link" id="depotReset" type="button">Reset to New Kingston</button></div>
-            </div>
-          </div>
-        </div>
+      <details class="more">
+        <summary>Advanced</summary>
+        <label class="check"><input type="checkbox" id="merge"> Combine routes heading the same way <button type="button" class="tip" data-tip="When two drivers are heading the same way and one driver can cover both within the working day, combine them into one route. Untick to spread the stops across every driver you set.">i</button></label>
       </details>
 
-      <details class="step" open>
-        <summary><span class="num">3</span>What to visit</summary>
-        <div class="stepbody">
-          <div class="mode" id="mode"></div>
+      <div class="wnav"><span class="spacer"></span><button class="btn big" type="button" data-next>Next: where to go →</button></div>
+    </section>
 
-          <div class="row sechead"><b>Pick specific terminals</b> <span id="pickNote"></span>
-            <button class="link" id="clearPick" type="button" hidden>Clear all</button></div>
-          <div class="searchrow">
-            <div class="search">
-              <input id="search" type="search" placeholder="Search terminal ID, merchant or address" autocomplete="off" spellcheck="false" aria-label="Search terminals">
-              <div class="results" id="results"></div>
-            </div>
-            <button class="btn ghost" id="browse" type="button" title="See every terminal in a table">☰ Browse all</button>
-          </div>
-          <div class="chips picked" id="picked"></div>
-          <div class="row" id="pickOpts" hidden>
-            <label>Start from <select id="start"></select></label>
-            <label>Order <select id="order"><option value="best">Recommended (shortest)</option><option value="mine">As I selected them</option></select></label>
-            <button type="button" class="tip" data-tip="Start from: begin at the depot or at any selected terminal. Order: “Recommended” lets the planner find the shortest order; “As I selected them” keeps the order you picked, and shows how much distance that costs or saves.">i</button>
-          </div>
-          <div id="gbox" hidden>
-            <div class="row">Nearby terminals you could add <span class="sub" id="sugNote"></span></div>
-            <div class="chips" id="suggest"></div>
-          </div>
+    <section class="panel" data-step="2" aria-labelledby="p2h">
+      <h2 class="phead" id="p2h">Where should drivers go?</h2>
 
-          <div class="or"><span>or route whole parishes</span></div>
-          <div class="row sechead"><b>Parishes to visit</b> <span id="parishNote"></span>
-            <span class="spacer"></span><button class="link" id="allP" type="button">All</button><button class="link" id="noneP" type="button">None</button></div>
-          <div class="chips" id="parishes"></div>
+      <div class="callout">
+        <span class="dbadge">D</span>
+        <div>
+          <b>Starting point (depot)</b> <button type="button" class="tip" data-tip="The depot is where every driver's day starts (and ends, if “Come back to where they started” is ticked). It is the black D pin on the map. Drag it anywhere in Jamaica and the routes update instantly. Prefer to start from a customer instead? Choose specific terminals below and use “Start from”.">i</button>
+          <div class="sub">Currently <b id="depotLabel"></b>. <span id="depotNote"></span></div>
+          <div class="sub">Drag the black <b>D</b> pin on the map to move it.</div>
+          <div class="btnrow"><button class="link" id="depotFind" type="button">Show on map</button>
+            <button class="link" id="depotReset" type="button">Reset to New Kingston</button></div>
         </div>
-      </details>
+      </div>
 
-      <details class="step">
-        <summary><span class="num">4</span>Suggested driver groups <em>for schedulers</em></summary>
-        <div class="stepbody">
-          <div class="sub">Not sure how to split the work? Find clusters of nearby terminals that each fit one driver's day, then select one to route it.</div>
+      <div class="seg" role="tablist" aria-label="What to visit">
+        <button type="button" role="tab" data-mode="parishes">Whole parishes</button>
+        <button type="button" role="tab" data-mode="terminals">Specific terminals <b id="segCount"></b></button>
+      </div>
+
+      <div id="paneParishes" class="pane">
+        <div class="row sechead"><b>Parishes to visit</b> <span id="parishNote"></span>
+          <span class="spacer"></span><button class="link" id="allP" type="button">All</button><button class="link" id="noneP" type="button">None</button></div>
+        <div class="chips" id="parishes"></div>
+
+        <details class="more">
+          <summary>Not sure how to split the work? <em>Suggest groups</em></summary>
+          <div class="sub">Finds clusters of nearby terminals in the parishes above that each fit one driver's day. Press Select on a group to route it.</div>
           <div class="row">
             <label>Within <input type="number" id="gRadius" min="1" max="40" inputmode="decimal"> km</label>
             <label>Max <input type="number" id="gMax" min="1" max="40" inputmode="numeric"> stops</label>
             <button class="btn" id="findGroups" type="button">Find groups</button>
-            <button class="btn" id="assignGroups" type="button" hidden title="Give each driver one of the groups below, biggest first">Assign to drivers</button>
+            <button class="btn" id="assignGroups" type="button" hidden title="Give each driver one of the groups below, biggest first">Give one group to each driver</button>
           </div>
           <div class="sub" id="gnote"></div>
           <div class="glist" id="groups"></div>
+        </details>
+      </div>
+
+      <div id="paneTerminals" class="pane" hidden>
+        <div class="row sechead"><b>Terminals to visit</b> <span id="pickNote"></span>
+          <span class="spacer"></span><button class="link" id="clearPick" type="button" hidden>Clear all</button></div>
+        <div class="searchrow">
+          <div class="search">
+            <input id="search" type="search" placeholder="Search terminal ID, merchant or address" autocomplete="off" spellcheck="false" aria-label="Search terminals">
+            <div class="results" id="results"></div>
+          </div>
+          <button class="btn ghost" id="browse" type="button" title="See every terminal in a table">☰ Browse all</button>
         </div>
-      </details>
+        <div class="chips picked" id="picked"></div>
+        <div class="row" id="pickOpts" hidden>
+          <label>Start from <select id="start"></select></label>
+          <label>Order <select id="order"><option value="best">Shortest route</option><option value="mine">The order I chose</option></select></label>
+          <button type="button" class="tip" data-tip="Start from: begin at the depot or at any chosen terminal. Order: “Shortest route” lets the planner find the best order; “The order I chose” keeps your order, and shows how much distance that costs or saves.">i</button>
+        </div>
+        <div id="gbox" hidden>
+          <div class="row">Nearby terminals you could add <span class="sub" id="sugNote"></span></div>
+          <div class="chips" id="suggest"></div>
+        </div>
+      </div>
+
+      <div class="mode" id="mode"></div>
+      <div class="wnav"><button class="btn ghost big" type="button" data-back>← Back</button><span class="spacer"></span><button class="btn big" type="button" data-next>See routes →</button></div>
     </section>
 
-    <div class="resulthead">
-      <h2>Routes</h2>
-      <button class="link" id="printBtn" type="button">🖨 Print / save as PDF</button>
-    </div>
-    <div class="gbar" id="gbar" hidden>
-      <div class="row"><button class="btn" id="refine" type="button">Optimise with Google roads</button>
-        <button type="button" class="tip" data-tip="The instant plan uses estimated road distances. This asks Google for real driving times and re-orders each route to match. Works for routes of up to 24 stops (add drivers to shorten longer ones) and has a daily lookup limit. Needs an internet connection.">i</button></div>
-      <div class="sub" id="gstatus"></div>
-    </div>
-    <div class="kpis" id="kpis"></div>
-    <div class="advice" id="advice"></div>
-    <div class="selbar" id="selbar" hidden><span id="selText"></span> <button type="button" id="selClear">Show all stops again</button></div>
-    <div class="nearby" id="nearby" hidden></div>
-    <div class="list" id="routes"></div>
+    <section class="panel" data-step="3" aria-labelledby="p3h">
+      <div class="resulthead">
+        <h2 id="p3h">Routes</h2>
+        <span class="hbtns"><button class="link" type="button" data-goto="2">← Change stops</button>
+          <button class="link" id="printBtn" type="button">🖨 Print / PDF</button></span>
+      </div>
+      <div class="sub scope" id="scope"></div>
+      <div class="gbar" id="gbar" hidden>
+        <div class="row"><button class="btn" id="refine" type="button">Use real road times (Google)</button>
+          <button type="button" class="tip" data-tip="The instant plan uses estimated road distances. This asks Google for real driving times and re-orders each route to match. Works for routes of up to 24 stops (add drivers to shorten longer ones) and has a daily lookup limit. Needs an internet connection.">i</button></div>
+        <div class="sub" id="gstatus"></div>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="advice" id="advice"></div>
+      <div class="nearby" id="nearby" hidden></div>
+      <div class="hint tipline">Tap a driver to open their route. Under <b>More</b>, Bing Maps often finds Jamaican addresses that Google misses; Waze and Apple Maps open one stop at a time.</div>
+      <div class="list" id="routes"></div>
+    </section>
   </aside>
   <div id="map"></div>
 </div>
@@ -478,15 +526,14 @@
 <dialog id="guide" class="modal" aria-labelledby="guideTitle">
   <div class="mhead">
     <div><h2 id="guideTitle">Welcome to Driver Routes</h2>
-      <div class="sub">Plan each driver's day in four steps. Everything updates instantly.</div></div>
+      <div class="sub">Plan each driver's day in three steps. Everything updates instantly.</div></div>
     <button class="x" type="button" data-close aria-label="Close">✕</button>
   </div>
   <div class="mbody">
     <ol class="steps">
-      <li><b>Set the day.</b> Choose how many drivers, minutes per stop, average speed and the length of a working day.</li>
-      <li><b>Place the depot.</b> The black <span class="dbadge sm">D</span> on the map is the <b>depot</b>: where every driver starts. Drag it to move it.</li>
-      <li><b>Choose what to visit.</b> Search for a terminal or press <b>Browse all</b> to pick from a table. Or skip this and route whole parishes.</li>
-      <li><b>Read the routes.</b> Each driver gets a colour, a numbered list and one-tap navigation. Tap a stop to find it on the map.</li>
+      <li><b>Your day.</b> Say how many drivers you have. The defaults for time per stop, speed and day length work for most days.</li>
+      <li><b>Where to go.</b> The black <span class="dbadge sm">D</span> on the map is the <b>depot</b>, where every driver starts: drag it to move it. Then choose <b>Whole parishes</b> or <b>Specific terminals</b> (search, or press Browse all).</li>
+      <li><b>Routes.</b> Each driver gets a colour, a numbered list and a one-tap <b>Navigate</b> button. Tap a stop to find it on the map.</li>
     </ol>
     <h3>What you'll see</h3>
     <dl class="gloss">
@@ -501,7 +548,7 @@
     <ul class="plain">
       <li>Look for the <span class="tip static">i</span> icons for a short explanation of any setting.</li>
       <li>Your settings and driver names are saved in this browser.</li>
-      <li>You can reopen this guide any time with <b>? How it works</b>.</li>
+      <li>You can reopen this guide any time with <b>? Help</b>, and jump between steps with the numbers at the top.</li>
     </ul>
   </div>
   <div class="mfoot"><span class="spacer"></span><button class="btn" type="button" data-close>Got it, let's go</button></div>
@@ -522,7 +569,10 @@ const DEFAULTS = { drivers: 3, serviceMin: 15, speed: 35, dayHours: 8, parishes:
                    depot: [18.0075, -76.7850],  // New Kingston
                    picked: [], startId: null, order: "best", loopArea: true, loopPicked: false,
                    gRadius: 6, gMax: 5, pin: {}, merge: true };  // pin: stop id -> driver index the scheduler moved it to
+const hadSaved = store.get("routeSettings", null) !== null;
 let settings = { ...DEFAULTS, ...store.get("routeSettings", {}) };
+// mode says what is routed: "parishes" or "terminals" (the hand-picked list). Older saves had no mode: a saved selection meant terminals.
+if (settings.mode !== "parishes" && settings.mode !== "terminals") settings.mode = settings.picked.length ? "terminals" : "parishes";
 let names = store.get("driverNames", []);
 const driverName = i => names[i] || `Driver ${i + 1}`;
 const save = () => store.set("routeSettings", settings);
@@ -743,10 +793,11 @@ const nav = {
   bing: s => `https://www.bing.com/maps?rtp=~adr.${enc(placeText(s))}&mode=D`
 };
 const navLinks = s => `<div class="nav">
-  <a href="${nav.google(s)}" target="_blank" rel="noopener">Google Maps</a>
-  <a href="${nav.bing(s)}" target="_blank" rel="noopener" title="Try this when Google Maps can't find the address">Bing Maps</a>
+  <a class="primary" href="${nav.google(s)}" target="_blank" rel="noopener">Navigate</a>
   <a href="${nav.waze(s)}" target="_blank" rel="noopener">Waze</a>
-  <a href="${nav.apple(s)}" target="_blank" rel="noopener">Apple Maps</a></div>`;
+  <a class="alt" href="${nav.bing(s)}" target="_blank" rel="noopener" title="Try this when Google Maps can't find the address">Bing Maps</a>
+  <a class="alt" href="${nav.apple(s)}" target="_blank" rel="noopener">Apple Maps</a>
+  <button type="button" data-more>More ▾</button></div>`;
 
 // Google Maps takes at most 9 waypoints per link, so long routes are split into parts.
 function googleRouteParts(origin, visits, closed) {
@@ -809,7 +860,7 @@ function togglePick(s, tid) {
   if (isPicked(s)) {
     settings.picked = settings.picked.filter(p => p.s !== s.id);
     if (settings.startId === s.id) settings.startId = null;
-  } else settings.picked = [...settings.picked, { s: s.id, t: tid || s.terminals[0].id }];
+  } else { settings.picked = [...settings.picked, { s: s.id, t: tid || s.terminals[0].id }]; settings.mode = "terminals"; }
   save(); fitNext = true; drawPicked(); replan();
 }
 
@@ -884,7 +935,7 @@ function consolidate(routes, origin, opts, dayMin) {
 function replan() {
   if (!data) return;
   const picked = settings.picked.map(p => byId[p.s]).filter(Boolean);
-  const selecting = picked.length > 0;
+  const selecting = settings.mode === "terminals";  // an explicit choice: parishes are not silently overridden by a leftover selection
   const start = selecting && picked.find(s => s.id === settings.startId) || null;
   const origin = start
     ? { p: [start.lat, start.lon], show: start.show, text: placeText(start), stop: start }
@@ -924,12 +975,12 @@ function replan() {
   lastCtx = { routes, origin, selecting, sig };
   const viaGoogle = googlePlan && googlePlan.sig === sig;
   if (viaGoogle) routes = googlePlan.routes;
-  $("gbox").hidden = !selecting;
+  $("gbox").hidden = !(selecting && picked.length);
   $("gbar").hidden = !stops.length;
   $("gstatus").textContent = viaGoogle ? googlePlan.status : "";
-  $("refine").textContent = viaGoogle ? "Re-run with Google roads" : "Optimise with Google roads";
+  $("refine").textContent = viaGoogle ? "Re-run with Google road times" : "Use real road times (Google)";
   draw(routes, stops, origin, { selecting, available, merged });
-  if (selecting) scheduleSuggest(picked, origin, opts.closed);
+  if (selecting && picked.length) scheduleSuggest(picked, origin, opts.closed);
   markGroups();
 }
 
@@ -1019,7 +1070,7 @@ function applyGroups(list) {
   groupAssign = list.map(ids => ids.filter(id => byId[id]));
   const seen = new Set();
   settings.picked = groupAssign.flat().filter(id => !seen.has(id) && seen.add(id)).map(id => ({ s: id, t: byId[id].terminals[0].id }));
-  settings.startId = null; settings.pin = {};
+  settings.startId = null; settings.pin = {}; settings.mode = "terminals";
   save(); fitNext = true; drawPicked(); replan();
 }
 function toggleGroup(g) {
@@ -1045,7 +1096,7 @@ $("findGroups").onclick = async () => {
       parishes: settings.parishes.join(","), ...planCfg() });
     const r = await api("/api/groups?" + q);
     const shown = lastGroups = r.groups.slice(0, 40);
-    note.textContent = `${r.count} groups for ${settings.parishes.length ? settings.parishes.join(", ") : "all parishes"} — each fits one driver's ${settings.dayHours}h day (round trip from the depot). Click a group to see it. Select gives it to the next free driver, or use Assign to drivers to fill them all.`;
+    note.textContent = `${r.count} groups for ${settings.parishes.length ? settings.parishes.join(", ") : "all parishes"} — each fits one driver's ${settings.dayHours}h day (round trip from the depot). Click a group to see it. Press Select to give a group to the next free driver, or "Give one group to each driver" to fill them all.`;
     list.innerHTML = shown.map((g, i) => `<div class="grp" data-i="${i}"><div>
         <b>Group ${g.group}</b> · ${g.terminals} terminal${g.terminals > 1 ? "s" : ""} at ${g.stops.length} stop${g.stops.length > 1 ? "s" : ""} · ${esc(g.parishes.join(", "))}${g.overDay ? '<span class="tag over">OVER DAY</span>' : ""}${g.remote ? '<span class="tag" title="Too far for a day trip from the depot: the time shown is only the driving between these stops">REMOTE</span>' : ""}
         <div class="sub">~${g.estKm} km · ${fmtMin(g.estWorkMin)} · within ${g.spreadKm} km of its centre</div></div>
@@ -1155,12 +1206,13 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
     [fmtMin(longest), "Longest day", "Working time of the busiest driver: driving plus time at each stop. Compare it with your day length."]
   ].map(([v, l, tip]) => `<div class="kpi"><b>${v}</b><span>${l}<button type="button" class="tip" data-tip="${esc(tip)}">i</button></span></div>`).join("");
   const nStops = stops.length + (origin.stop ? 1 : 0);
-  $("mode").innerHTML = selecting
-    ? `Routing <b>${nStops} selected stop${nStops === 1 ? "" : "s"}</b>. Parishes below are ignored while terminals are selected.`
-    : `Routing <b>all ${stops.length} stops</b> in ${settings.parishes.length} parish${settings.parishes.length === 1 ? "" : "es"}. Select terminals instead to route just those.`;
-  $("selbar").hidden = !selecting;
-  $("selText").textContent = `Routing only the ${nStops} terminal${nStops === 1 ? "" : "s"} you selected, not the whole area.`;
+  const scope = selecting
+    ? (nStops ? `<b>${nStops} chosen stop${nStops === 1 ? "" : "s"}</b>` : "")
+    : `<b>${stops.length} stop${stops.length === 1 ? "" : "s"}</b> in ${settings.parishes.length} parish${settings.parishes.length === 1 ? "" : "es"}`;
+  $("mode").innerHTML = scope ? `Ready to plan ${scope}.` : (selecting ? "No terminals chosen yet. Search above, or press Browse all." : "No parishes chosen yet. Tap one or more above.");
+  $("scope").innerHTML = scope ? `Planned for ${scope}.` : "";
   $("tabCount").textContent = nStops; $("tabCount").hidden = !nStops;
+  $("stepper").querySelector('[data-step="3"]').classList.toggle("done", routes.some(r => r.visits.length) && !(longest > settings.dayHours * 60));
   $("depotNote").textContent = origin.stop ? `Not used right now: routes start from ${origin.stop.merchants[0]}.` : "";
 
   const dayMin = settings.dayHours * 60;
@@ -1171,14 +1223,14 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
     : merged ? [
         merged.from > used.length ? `Merged ${merged.from} routes into ${used.length}: drivers heading the same way now share one route (saves ${merged.saved.toFixed(0)} km).` : "",
         merged.moved ? `Moved ${merged.moved} outlying stop${merged.moved > 1 ? "s" : ""} to the driver already heading there (saves ${merged.movedKm.toFixed(0)} km).` : "",
-        `Every day still fits ${settings.dayHours}h. Untick "Merge overlapping routes" to keep all ${available} drivers busy.`].filter(Boolean).join(" ")
+        `Every day still fits ${settings.dayHours}h. To use all ${available} drivers, untick "Combine routes heading the same way" under Advanced in step 1.`].filter(Boolean).join(" ")
     : selecting && used.length < available ? `Using ${used.length} of ${available} drivers — the selection fits in a ${settings.dayHours}h day.` : "";
   const pinned = new Set(Object.values(settings.pin || {}));
   drawNearby(routes, origin);
   const routesEl = $("routes");
   routesEl.innerHTML = stops.length ? "" : selecting
-    ? '<div class="empty">Select another terminal to route to.</div>'
-    : '<div class="empty">Pick at least one parish, or select terminals, to plan routes.</div>';
+    ? '<div class="empty">No terminals chosen yet.<br><button class="btn" type="button" data-goto="2">Choose terminals</button></div>'
+    : '<div class="empty">No parishes chosen yet.<br><button class="btn" type="button" data-goto="2">Choose where to go</button></div>';
   const bounds = [origin.show];
 
   if (origin.stop) {
@@ -1221,11 +1273,9 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
           : `<b>Recommended order</b>: ${r.km.toFixed(1)} km${r.altKm - r.km > 0.05 ? `, ${(r.altKm - r.km).toFixed(1)} km shorter than the order you selected them in` : " — same as your selection order"}.`}</div>`}
         <div class="hint" style="padding-top:${r.altKm == null ? 10 : 0}px">${origin.stop ? `Starts at ${esc(origin.stop.merchants[0])}` : "Starts at the depot"}${r.closed ? " and returns there" : `, ends at stop ${r.visits.length}`}.</div>
         <div class="actions" style="padding-top:0">${googleRouteParts(origin, r.visits, r.closed).map(p =>
-          `<a href="${p.url}" target="_blank" rel="noopener">Google Maps: ${p.label}</a>
-           <a href="${p.bing}" target="_blank" rel="noopener">Bing Maps: ${p.label}</a>`).join("")}
-          <button data-solo>Show only this route</button><button data-copy>Copy list</button></div>
-        <div class="hint">Waze and Apple Maps take one destination per link — use the buttons on each stop, in order.</div>
-        <div class="hint">Tip: if Google Maps can't find an address, use <b>Bing Maps</b> — it often locates Jamaican addresses Google misses.</div>
+          `<a href="${p.url}" target="_blank" rel="noopener">Google Maps · ${p.label}</a>
+           <a class="alt" href="${p.bing}" target="_blank" rel="noopener">Bing Maps · ${p.label}</a>`).join("")}
+          <button data-solo>Show only this route</button><button data-copy>Copy list</button><button data-more>More ▾</button></div>
         <ul class="stops">${r.visits.map(v => {
           const s = v.stop, approx = s.precision === "parish" || s.parish_mismatch;
           return `<li data-key="${i}-${v.seq}">
@@ -1251,7 +1301,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
       repaintNearby(); markGroups();  // text built from driver names must follow the rename
     };
     card.querySelectorAll("li[data-key]").forEach(li => li.onclick = e => {
-      if (e.target.closest("a")) return;
+      if (e.target.closest("a, button")) return;
       const m = markers[li.dataset.key];
       if (isMobile.matches) setView("map");
       map.setView(m.getLatLng(), Math.max(map.getZoom(), 14)); m.openPopup();
@@ -1287,21 +1337,26 @@ const replanSoon = () => { clearTimeout(timer); timer = setTimeout(replan, 120);
   el.oninput = () => {
     const v = parseFloat(el.value);
     if (!(v >= +el.min && v <= +el.max)) return;
-    settings[key] = v; save(); replanSoon();
+    settings[key] = v; save(); dayLine(); replanSoon();
   };
 });
+const dayLine = () => $("dayLine").textContent = `${settings.serviceMin} min/stop · ${settings.speed} km/h · ${settings.dayHours}h day`;
+dayLine();
 function resetDepot() { settings.depot = DEFAULTS.depot; save(); fitNext = true; replan(); toast("Depot moved back to New Kingston"); }
 $("depotReset").onclick = resetDepot;
 $("depotFind").onclick = () => { depotSeen(); if (isMobile.matches) setView("map"); map.setView(settings.depot, Math.max(map.getZoom(), 12)); depotMarker.openPopup(); };
 $("merge").checked = settings.merge;
 $("merge").onchange = () => { settings.merge = $("merge").checked; save(); replan(); };
 $("loop").onchange = () => {
-  settings[settings.picked.length ? "loopPicked" : "loopArea"] = $("loop").checked;
+  settings[settings.mode === "terminals" ? "loopPicked" : "loopArea"] = $("loop").checked;
   save(); replan();
 };
+document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => {
+  if (settings.mode === b.dataset.mode) return;
+  settings.mode = b.dataset.mode; save(); fitNext = true; drawPicked(); replan();
+});
 $("order").onchange = () => { settings.order = $("order").value; save(); replan(); };
 $("start").onchange = () => { settings.startId = $("start").value || null; save(); replan(); };
-$("selClear").onclick = () => $("clearPick").click();
 $("clearPick").onclick = () => { settings.pin = {}; settings.picked = []; settings.startId = null; save(); fitNext = true; drawPicked(); replan(); };
 
 // Terminal search: terminal ID, merchant name or address.
@@ -1346,18 +1401,21 @@ function drawPicked() {
   $("picked").querySelectorAll(".chip").forEach(b => b.onclick = () => togglePick(byId[b.dataset.s]));
   $("pickOpts").hidden = !on;
   $("clearPick").hidden = !on;
-  $("pickNote").textContent = on ? `· routing only these ${picked.length}` : "· or route whole parishes below";
+  $("pickNote").textContent = on ? `· ${picked.length} chosen` : "";
+  $("segCount").textContent = picked.length || "";
+  const terminals = settings.mode === "terminals";
+  document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.mode === settings.mode)));
+  $("paneParishes").hidden = terminals; $("paneTerminals").hidden = !terminals;
   $("start").innerHTML = '<option value="">Depot</option>' + picked.map((p, i) =>
     `<option value="${esc(p.s)}"${p.s === settings.startId ? " selected" : ""}>${i + 1}. ${esc(byId[p.s].merchants[0])}</option>`).join("");
   $("order").value = settings.order;
-  $("parishes").classList.toggle("off", on);
-  $("parishNote").textContent = on ? "· not used while terminals are selected" : "";
 }
 
 function drawParishes() {
   const counts = {};
   data.stops.forEach(s => counts[s.parish] = (counts[s.parish] || 0) + 1);
   const chosen = new Set(settings.parishes);
+  $("parishNote").textContent = `· ${chosen.size} chosen`;
   $("parishes").innerHTML = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([p, c]) =>
     `<button class="chip${chosen.has(p) ? " on" : ""}" data-p="${esc(p)}">${esc(p)} <span>${c}</span></button>`).join("");
   $("parishes").querySelectorAll(".chip").forEach(b => b.onclick = () => {
@@ -1455,7 +1513,7 @@ keyCtl.onAdd = () => {
     <li><span class="pin sm" style="background:#2563eb">1</span> Stop number in the driver's order</li>
     <li><span class="pin sm" style="background:linear-gradient(90deg,#2563eb 50%,#d97706 50%)"></span> One colour per driver</li>
     <li><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="currentColor" stroke-width="3" stroke-dasharray="5 4"/></svg> Dashed line: stops joined in order, not the road. Distances still use road estimates</li>
-    <li><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="currentColor" stroke-width="3"/></svg> Solid line: the real road path (after Optimise with Google roads)</li></ul>`;
+    <li><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="currentColor" stroke-width="3"/></svg> Solid line: the real road path (after "Use real road times")</li></ul>`;
   L.DomEvent.disableClickPropagation(d);
   return d;
 };
@@ -1519,8 +1577,10 @@ function bSummary() {
 }
 function pickStops(list, on) {  // list of [stop, terminalId]; one replan for the whole batch
   const have = new Set(settings.picked.map(p => p.s));
-  if (on) settings.picked = [...settings.picked, ...list.filter(([s]) => !have.has(s.id) && have.add(s.id)).map(([s, t]) => ({ s: s.id, t: t || s.terminals[0].id }))];
-  else {
+  if (on) {
+    settings.picked = [...settings.picked, ...list.filter(([s]) => !have.has(s.id) && have.add(s.id)).map(([s, t]) => ({ s: s.id, t: t || s.terminals[0].id }))];
+    settings.mode = "terminals";
+  } else {
     const rm = new Set(list.map(([s]) => s.id));
     settings.picked = settings.picked.filter(p => !rm.has(p.s));
     if (rm.has(settings.startId)) settings.startId = null;
@@ -1556,22 +1616,53 @@ document.querySelectorAll("#btable th[data-k]").forEach(th => {
 $("bclear").onclick = () => { settings.picked = []; settings.startId = null; save(); drawPicked(); replanSoon(); bRefresh(); };
 bdlg.addEventListener("close", () => {
   const n = settings.picked.length;
-  if (n && isMobile.matches) setView("routes");
-  else if (n) toast(`${n} stop${n === 1 ? "" : "s"} selected. Scroll down for the routes.`);
+  if (n) toast(`${n} stop${n === 1 ? "" : "s"} chosen. Press “See routes” when you're ready.`);
 });
 
 // ---------------------------------------------------------------------------
 // Mobile tabs (Plan / Routes / Map) and colour theme
 // ---------------------------------------------------------------------------
+// The wizard: step 1 (day), 2 (where), 3 (routes). On a phone the bottom tabs are Plan (steps 1-2), Routes (step 3) and Map,
+// so the tab and the step are kept in step with each other. On desktop only the step matters.
+let wstep = hadSaved ? 3 : 1;  // returning users want their routes; first-timers start at the beginning
+function paintStep() {
+  document.body.dataset.step = wstep;
+  document.querySelectorAll("#stepper button").forEach(b => {
+    const n = +b.dataset.step;
+    if (n === wstep) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+  });
+  $("stepper").querySelector('[data-step="1"]').classList.toggle("done", wstep > 1);
+  $("stepper").querySelector('[data-step="2"]').classList.toggle("done", wstep > 2);
+}
 function setView(v) {
   document.body.dataset.view = v;
   document.querySelectorAll("#tabbar button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.v === v)));
+  if (v === "routes" && wstep !== 3) { wstep = 3; paintStep(); }
+  if (v === "plan" && wstep === 3) { wstep = 2; paintStep(); }
   window.scrollTo(0, 0);
   if (v === "map") setTimeout(() => map.invalidateSize(), 60);
 }
-document.querySelectorAll("#tabbar button").forEach(b => b.onclick = () => setView(b.dataset.v));
-isMobile.addEventListener("change", () => { setView("plan"); setTimeout(() => map.invalidateSize(), 60); });
-setView("plan");
+function setStep(n) {
+  wstep = Math.max(1, Math.min(3, n)); paintStep();
+  document.querySelector("aside").scrollTop = 0;
+  if (isMobile.matches) setView(wstep === 3 ? "routes" : "plan"); else window.scrollTo(0, 0);
+}
+document.querySelectorAll("#stepper button").forEach(b => b.onclick = () => setStep(+b.dataset.step));
+document.addEventListener("click", e => {
+  const go = e.target.closest("[data-goto]"), nx = e.target.closest("[data-next]"), bk = e.target.closest("[data-back]"), more = e.target.closest("[data-more]");
+  if (go) setStep(+go.dataset.goto);
+  else if (nx) setStep(wstep + 1);
+  else if (bk) setStep(wstep - 1);
+  else if (more) {  // reveal the secondary navigation apps
+    const box = more.closest(".nav, .actions"), all = box.classList.toggle("all");
+    more.textContent = all ? "Less ▴" : "More ▾";
+  }
+});
+document.querySelectorAll("#tabbar button").forEach(b => b.onclick = () => b.dataset.v === "plan" ? setStep(wstep === 3 ? 2 : wstep) : b.dataset.v === "routes" ? setStep(3) : setView("map"));
+isMobile.addEventListener("change", () => { setStep(wstep); setTimeout(() => map.invalidateSize(), 60); });
+document.body.dataset.view = "plan";
+paintStep();
+if (isMobile.matches) setView(wstep === 3 ? "routes" : "plan");
 
 const THEMES = { auto: ["◐", "Theme: follows your device. Tap for light."], light: ["☀", "Theme: light. Tap for dark."], dark: ["☾", "Theme: dark. Tap to follow your device."] };
 let theme = store.get("theme", "auto");
