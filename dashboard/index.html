@@ -513,7 +513,7 @@ const store = {
 const DEFAULTS = { drivers: 3, serviceMin: 15, speed: 35, dayHours: 8, parishes: ["Kingston", "Saint Andrew"],
                    depot: [18.0075, -76.7850],  // New Kingston
                    picked: [], startId: null, order: "best", loopArea: true, loopPicked: false,
-                   gRadius: 6, gMax: 12, pin: {} };  // pin: stop id -> driver index allowed past the day limit
+                   gRadius: 6, gMax: 5, pin: {} };  // pin: stop id -> driver index the scheduler moved it to
 let settings = { ...DEFAULTS, ...store.get("routeSettings", {}) };
 let names = store.get("driverNames", []);
 const driverName = i => names[i] || `Driver ${i + 1}`;
@@ -965,34 +965,34 @@ $("findGroups").onclick = async () => {
   el.oninput = () => { const v = parseFloat(el.value); if (v >= +el.min && v <= +el.max) { settings[key] = v; save(); } };
 });
 
-// Two drivers heading into the same area: when a stop on one route sits close to another driver's
-// stop but that driver has no room left in the day, offer to stretch that driver's limit instead.
-const NEAR_KM = 5;
+// Two drivers heading into the same area: when a stop sits closer to another driver's route than to
+// the rest of its own, ask the scheduler whether to move it there. Applies at any route size.
+const NEAR_KM = 8, MARGIN_KM = 0.5;  // ignore far-off routes, and near-ties so a stop can't flip-flop
 function drawNearby(routes, origin) {
-  const box = $("nearby"), dayMin = settings.dayHours * 60, pin = settings.pin || {};
+  const box = $("nearby"), pin = settings.pin || {};
   const offers = [];
   routes.forEach((from, b) => from.visits.forEach(v => {
     if (pin[v.stop.id] != null) return;
+    let own = Infinity;  // closest the stop gets to the rest of its own route (or the start, if it is alone)
+    for (const w of from.visits) if (w !== v) own = Math.min(own, net.km(v.stop.node, w.stop.node));
+    if (own === Infinity) own = net.km(v.stop.node, net.node(origin.p));
     let best = null;
     routes.forEach((to, a) => {
-      if (a === b || !to.visits.length) return;
+      if (a === b) return;
       for (const w of to.visits) {
         const km = net.km(v.stop.node, w.stop.node);
-        if (km <= NEAR_KM && (!best || km < best.km)) best = { a, km, near: w.stop };
+        if (km <= NEAR_KM && km + MARGIN_KM < own && (!best || km < best.km)) best = { a, km, near: w.stop };
       }
     });
-    if (!best) return;
-    const addMin = 2 * best.km / settings.speed * 60 + settings.serviceMin;  // out-and-back detour, an upper bound
-    if (routes[best.a].min + addMin <= dayMin) return;  // there is room, so the planner's split already stands
-    offers.push({ ...best, b, stop: v.stop, addMin });
+    if (best) offers.push({ ...best, b, own, stop: v.stop });
   }));
-  offers.sort((x, y) => x.km - y.km);
+  offers.sort((x, y) => (y.own - y.km) - (x.own - x.km));
   const active = Object.entries(pin).filter(([id, d]) => routes[d]?.visits.some(v => v.stop.id === id));
   box.hidden = !offers.length && !active.length;
-  box.innerHTML = offers.slice(0, 3).map((o, n) => `<div class="row"><span><b>${esc(driverName(o.b))}</b> and <b>${esc(driverName(o.a))}</b> are both heading to this area:
-      ${esc(o.stop.merchants[0])} is ${o.km.toFixed(1)} km from ${esc(o.near.merchants[0])}. Let ${esc(driverName(o.a))} take it (about +${fmtMin(o.addMin)}, past the ${settings.dayHours}h limit)?</span>
-      <button data-offer="${n}">Override limit</button></div>`).join("")
-    + active.map(([id, d]) => `<div class="row"><span>${esc(driverName(+d))} may go past the day limit to cover ${esc(byId[id].merchants[0])}.</span>
+  box.innerHTML = offers.slice(0, 3).map((o, n) => `<div class="row"><span><b>${esc(o.stop.merchants[0])}</b> is on ${esc(driverName(o.b))}'s route but is closer to
+      ${esc(driverName(o.a))}'s (${o.km.toFixed(1)} km from ${esc(o.near.merchants[0])}, vs ${o.own.toFixed(1)} km on its own route). Add it to ${esc(driverName(o.a))}'s route?</span>
+      <button data-offer="${n}">Add to ${esc(driverName(o.a))}</button></div>`).join("")
+    + active.map(([id, d]) => `<div class="row"><span>${esc(byId[id].merchants[0])} was moved to ${esc(driverName(+d))}'s route by you.</span>
       <button data-undo="${esc(id)}">Undo</button></div>`).join("");
   box.querySelectorAll("[data-offer]").forEach(b => b.onclick = () => {
     const o = offers[+b.dataset.offer];

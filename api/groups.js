@@ -1,5 +1,5 @@
 // GET /api/groups - recommended groups of terminals that one driver can cover in a day.
-//   ?radiusKm=6 &maxStops=12 &dayHours=8 &serviceMin=15 &speedKmh=35
+//   ?radiusKm=6 &maxStops=5 &dayHours=8 &serviceMin=15 &speedKmh=35
 //   &parishes=Kingston,Saint Andrew (default all) &lat=..&lon=.. (depot)
 //   &around=<terminalId or stopId>  -> only the group that stop belongs to
 import { endpoint } from "../lib/http.js";
@@ -11,7 +11,7 @@ const clamp = (v, d, lo, hi) => { const x = Number(v); return Number.isFinite(x)
 export default endpoint(["GET"], async (q) => {
   const cfg = planSettings(q);
   const depot = await resolveStart({ lat: q.lat, lon: q.lon });
-  const radiusKm = clamp(q.radiusKm, 6, 1, 40), maxStops = Math.round(clamp(q.maxStops, 12, 1, 40));
+  const radiusKm = clamp(q.radiusKm, 6, 1, 40), maxStops = Math.round(clamp(q.maxStops, 5, 1, 40));
   const wanted = q.parishes ? new Set(String(q.parishes).split(",").map((p) => p.trim().toLowerCase()).filter(Boolean)) : null;
   let stops = await allStops();
   if (wanted) stops = stops.filter((s) => wanted.has(s.parish.toLowerCase()));
