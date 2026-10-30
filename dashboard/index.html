@@ -126,6 +126,7 @@
   .grp { display: flex; gap: 10px; align-items: center; justify-content: space-between; border: 1px solid var(--line);
          border-radius: 8px; padding: 7px 10px; cursor: pointer; }
   .grp:hover { background: var(--chip); }
+  .grp.on { border-color: var(--accent); }
   .grp .pickbtn { margin: 0; flex: none; }
   .row input[type=number] { width: 56px; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
   .empty { color: var(--muted); padding: 20px 0; }
@@ -401,6 +402,7 @@
             <label>Within <input type="number" id="gRadius" min="1" max="40" inputmode="decimal"> km</label>
             <label>Max <input type="number" id="gMax" min="1" max="40" inputmode="numeric"> stops</label>
             <button class="btn" id="findGroups" type="button">Find groups</button>
+            <button class="btn" id="assignGroups" type="button" hidden title="Give each driver one of the groups below, biggest first">Assign to drivers</button>
           </div>
           <div class="sub" id="gnote"></div>
           <div class="glist" id="groups"></div>
@@ -835,7 +837,15 @@ function replan() {
                  pin: new Map(Object.entries(settings.pin || {}).filter(([id]) => stops.some(s => s.id === id))) };
   const overridden = new Set(opts.pin.values());  // drivers whose day limit the user chose to stretch
   let routes;
-  if (selecting) {  // a hand-picked set uses as few drivers as fit the working day
+  const assigned = selecting ? currentGroups() : [];
+  if (assigned.length) {  // each suggested group is one driver's route
+    const inPlan = new Set(stops.map(s => s.id));
+    const per = assigned.map(g => g.filter(id => inPlan.has(id)));
+    for (const [id, d] of opts.pin) if (per[d]) { per.forEach(g => { const at = g.indexOf(id); if (at >= 0) g.splice(at, 1); }); per[d].push(id); }
+    routes = per.map(ids => ids.length
+      ? plan(ids.map(id => byId[id]), origin.p, 1, settings, net, { ...opts, pin: null })[0]
+      : { visits: [], km: 0, min: 0, method: "", closed: opts.closed, altKm: null });
+  } else if (selecting) {  // a hand-picked set uses as few drivers as fit the working day
     for (let k = 1; k <= Math.min(available, Math.max(1, stops.length)); k++) {
       routes = plan(stops, origin.p, k, settings, net, opts);
       if (Math.max(0, ...routes.filter((_, i) => !overridden.has(i)).map(r => r.min)) <= settings.dayHours * 60) break;
@@ -854,6 +864,7 @@ function replan() {
   $("refine").textContent = viaGoogle ? "Re-run with Google roads" : "Optimise with Google roads";
   draw(routes, stops, origin, { selecting, available });
   if (selecting) scheduleSuggest(picked, origin, opts.closed);
+  markGroups();
 }
 
 // ---------------------------------------------------------------------------
@@ -932,9 +943,32 @@ function scheduleSuggest(picked, origin, closed) {
   }, 400);
 }
 
-function selectGroup(stopIds) {
-  settings.picked = stopIds.filter(id => byId[id]).map(id => ({ s: id, t: byId[id].terminals[0].id }));
-  settings.startId = null; save(); fitNext = true; drawPicked(); replan();
+// Suggested groups map to drivers: groupAssign[i] is driver i's stops. Not saved; a reload falls back to a plain selection.
+let groupAssign = [], lastGroups = [];
+function currentGroups() {  // the assignment, unless the selection was edited by hand since
+  const ids = new Set(settings.picked.map(p => p.s)), flat = groupAssign.flat();
+  return flat.length && flat.length === ids.size && flat.every(id => ids.has(id)) ? groupAssign : [];
+}
+function applyGroups(list) {
+  groupAssign = list.map(ids => ids.filter(id => byId[id]));
+  const seen = new Set();
+  settings.picked = groupAssign.flat().filter(id => !seen.has(id) && seen.add(id)).map(id => ({ s: id, t: byId[id].terminals[0].id }));
+  settings.startId = null; settings.pin = {};
+  save(); fitNext = true; drawPicked(); replan();
+}
+function toggleGroup(g) {
+  const cur = currentGroups(), key = g.stopIds.join(), at = cur.findIndex(x => x.join() === key);
+  if (at >= 0) return applyGroups(cur.filter((_, i) => i !== at));
+  if (cur.length >= settings.drivers) return toast(`All ${settings.drivers} drivers already have a group. Raise Drivers, or deselect a group first.`);
+  applyGroups([...cur, g.stopIds]);
+}
+function markGroups() {  // keep each group's button in step with who has it
+  const cur = currentGroups();
+  document.querySelectorAll("#groups .grp").forEach(el => {
+    const g = lastGroups[+el.dataset.i], at = g ? cur.findIndex(x => x.join() === g.stopIds.join()) : -1;
+    el.querySelector("button").textContent = at >= 0 ? `✓ ${driverName(at)}` : "Select";
+    el.classList.toggle("on", at >= 0);
+  });
 }
 
 $("findGroups").onclick = async () => {
@@ -944,8 +978,8 @@ $("findGroups").onclick = async () => {
     const q = new URLSearchParams({ radiusKm: settings.gRadius, maxStops: settings.gMax, lat: settings.depot[0], lon: settings.depot[1],
       parishes: settings.parishes.join(","), ...planCfg() });
     const r = await api("/api/groups?" + q);
-    const shown = r.groups.slice(0, 40);
-    note.textContent = `${r.count} groups for ${settings.parishes.length ? settings.parishes.join(", ") : "all parishes"} — each fits one driver's ${settings.dayHours}h day (round trip from the depot). Click a group to see it, Select to route it.`;
+    const shown = lastGroups = r.groups.slice(0, 40);
+    note.textContent = `${r.count} groups for ${settings.parishes.length ? settings.parishes.join(", ") : "all parishes"} — each fits one driver's ${settings.dayHours}h day (round trip from the depot). Click a group to see it. Select gives it to the next free driver, or use Assign to drivers to fill them all.`;
     list.innerHTML = shown.map((g, i) => `<div class="grp" data-i="${i}"><div>
         <b>Group ${g.group}</b> · ${g.terminals} terminal${g.terminals > 1 ? "s" : ""} at ${g.stops.length} stop${g.stops.length > 1 ? "s" : ""} · ${esc(g.parishes.join(", "))}${g.overDay ? '<span class="tag over">OVER DAY</span>' : ""}${g.remote ? '<span class="tag" title="Too far for a day trip from the depot: the time shown is only the driving between these stops">REMOTE</span>' : ""}
         <div class="sub">~${g.estKm} km · ${fmtMin(g.estWorkMin)} · within ${g.spreadKm} km of its centre</div></div>
@@ -953,12 +987,20 @@ $("findGroups").onclick = async () => {
     list.querySelectorAll(".grp").forEach(el => {
       const g = shown[+el.dataset.i];
       el.onclick = e => {
-        if (e.target.closest("button")) return selectGroup(g.stopIds);
+        if (e.target.closest("button")) return toggleGroup(g);
         if (isMobile.matches) setView("map");
         map.fitBounds(g.stops.map(s => [s.lat, s.lon]), { padding: [40, 40], maxZoom: 15 });
       };
     });
+    $("assignGroups").hidden = !shown.length;
+    markGroups();
   } catch (e) { note.textContent = `Groups unavailable: ${e.message}`; }
+};
+$("assignGroups").onclick = () => {
+  const n = Math.min(settings.drivers, lastGroups.length);
+  if (!n) return;
+  applyGroups(lastGroups.slice(0, n).map(g => g.stopIds));
+  toast(`${n} group${n > 1 ? "s" : ""} assigned, one per driver`);
 };
 [["gRadius", "gRadius"], ["gMax", "gMax"]].forEach(([id, key]) => {
   const el = $(id); el.value = settings[key];
