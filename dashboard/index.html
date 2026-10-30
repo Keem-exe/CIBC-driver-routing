@@ -80,6 +80,10 @@
   .kpi b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .advice { padding: 6px 20px 0; font-size: 12px; color: var(--warn); }
   .advice:empty { display: none; }
+  .selbar { margin: 8px 20px 0; padding: 8px 10px; border: 1px solid var(--accent); border-radius: 8px; font-size: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+  .selbar[hidden] { display: none; }
+  .selbar button { flex: none; font-size: 12px; cursor: pointer; }
+  @media (max-width: 760px) { .selbar { margin-left: 16px; margin-right: 16px; } }
   .nearby { margin: 8px 20px 0; padding: 8px 10px; border: 1px solid var(--warn); border-radius: 8px; font-size: 12px; }
   .nearby[hidden] { display: none; }
   .nearby .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 4px 0; }
@@ -290,7 +294,7 @@
     .nav a { display: inline-flex; align-items: center; padding: 6px 12px; }
     .results { position: fixed; left: 12px; right: 12px; top: auto; max-height: 40vh; }
     #map { display: none; height: calc(100dvh - 60px - env(safe-area-inset-bottom)); position: relative; }
-    body[data-view="plan"] .resulthead, body[data-view="plan"] .kpis, body[data-view="plan"] .advice, body[data-view="plan"] .nearby, body[data-view="plan"] .list,
+    body[data-view="plan"] .resulthead, body[data-view="plan"] .kpis, body[data-view="plan"] .advice, body[data-view="plan"] .nearby, body[data-view="plan"] .selbar, body[data-view="plan"] .list,
     body[data-view="routes"] .controls { display: none; }
     body[data-view="map"] aside { display: none; }
     body[data-view="map"] #map { display: block; }
@@ -422,6 +426,7 @@
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="advice" id="advice"></div>
+    <div class="selbar" id="selbar" hidden><span id="selText"></span> <button type="button" id="selClear">Show all stops again</button></div>
     <div class="nearby" id="nearby" hidden></div>
     <div class="list" id="routes"></div>
   </aside>
@@ -1153,6 +1158,8 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
   $("mode").innerHTML = selecting
     ? `Routing <b>${nStops} selected stop${nStops === 1 ? "" : "s"}</b>. Parishes below are ignored while terminals are selected.`
     : `Routing <b>all ${stops.length} stops</b> in ${settings.parishes.length} parish${settings.parishes.length === 1 ? "" : "es"}. Select terminals instead to route just those.`;
+  $("selbar").hidden = !selecting;
+  $("selText").textContent = `Routing only the ${nStops} terminal${nStops === 1 ? "" : "s"} you selected, not the whole area.`;
   $("tabCount").textContent = nStops; $("tabCount").hidden = !nStops;
   $("depotNote").textContent = origin.stop ? `Not used right now: routes start from ${origin.stop.merchants[0]}.` : "";
 
@@ -1189,7 +1196,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
     if (r.visits.length) {
       L.polyline(r.path ? decodePolyline(r.path)  // drivable road path from Google
           : [origin.show, ...r.visits.map(v => v.stop.show), ...(r.closed ? [origin.show] : [])],
-        { color, weight: 3, opacity: .8 }).addTo(group);
+        { color, weight: 3, opacity: .8, dashArray: r.path ? null : "6 6" }).addTo(group);
     }
     r.visits.forEach(v => {
       bounds.push(v.stop.show);
@@ -1205,7 +1212,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
       <div class="dhead">
         <span class="swatch" style="background:${color}"></span>
         <input class="dname" value="${esc(driverName(i))}" placeholder="Driver ${i + 1}" aria-label="Driver name" spellcheck="false">
-        <span class="dstats">${r.visits.length} stops · ${r.km.toFixed(0)} km<br>${fmtMin(r.min)}${over ? `<span class="tag over">${pinned.has(i) ? "LIMIT OVERRIDDEN" : "OVER DAY"}</span>` : ""}</span>
+        <span class="dstats">${r.visits.length} stop${r.visits.length === 1 ? "" : "s"} · ${r.km.toFixed(0)} km<br>${fmtMin(r.min)}${over ? `<span class="tag over">${pinned.has(i) ? "LIMIT OVERRIDDEN" : "OVER DAY"}</span>` : ""}</span>
       </div>
       <div class="bar" title="Working time relative to the longest route"><i style="width:${r.min / maxMin * 100}%;background:${over ? "var(--danger)" : color}"></i></div>
       <div class="body">${r.visits.length ? `
@@ -1294,6 +1301,7 @@ $("loop").onchange = () => {
 };
 $("order").onchange = () => { settings.order = $("order").value; save(); replan(); };
 $("start").onchange = () => { settings.startId = $("start").value || null; save(); replan(); };
+$("selClear").onclick = () => $("clearPick").click();
 $("clearPick").onclick = () => { settings.pin = {}; settings.picked = []; settings.startId = null; save(); fitNext = true; drawPicked(); replan(); };
 
 // Terminal search: terminal ID, merchant name or address.
@@ -1445,7 +1453,9 @@ keyCtl.onAdd = () => {
     <li><span class="dbadge sm">D</span> Depot: where routes start. Drag to move.</li>
     <li><span class="dbadge sm start">S</span> Start stop (when you start from a terminal)</li>
     <li><span class="pin sm" style="background:#2563eb">1</span> Stop number in the driver's order</li>
-    <li><span class="pin sm" style="background:linear-gradient(90deg,#2563eb 50%,#d97706 50%)"></span> One colour per driver</li></ul>`;
+    <li><span class="pin sm" style="background:linear-gradient(90deg,#2563eb 50%,#d97706 50%)"></span> One colour per driver</li>
+    <li><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="currentColor" stroke-width="3" stroke-dasharray="5 4"/></svg> Dashed line: stops joined in order, not the road. Distances still use road estimates</li>
+    <li><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="currentColor" stroke-width="3"/></svg> Solid line: the real road path (after Optimise with Google roads)</li></ul>`;
   L.DomEvent.disableClickPropagation(d);
   return d;
 };
