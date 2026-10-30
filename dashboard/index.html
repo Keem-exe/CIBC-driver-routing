@@ -80,6 +80,12 @@
   .kpi b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .advice { padding: 6px 20px 0; font-size: 12px; color: var(--warn); }
   .advice:empty { display: none; }
+  .nearby { margin: 8px 20px 0; padding: 8px 10px; border: 1px solid var(--warn); border-radius: 8px; font-size: 12px; }
+  .nearby[hidden] { display: none; }
+  .nearby .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 4px 0; }
+  .nearby .row + .row { border-top: 1px solid var(--border, rgba(128,128,128,.25)); }
+  .nearby button { flex: none; font-size: 12px; cursor: pointer; }
+  @media (max-width: 760px) { .nearby { margin-left: 16px; margin-right: 16px; } }
   .kpi span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
   .list { padding: 12px 20px 24px; display: flex; flex-direction: column; gap: 10px; }
   .driver { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
@@ -283,7 +289,7 @@
     .nav a { display: inline-flex; align-items: center; padding: 6px 12px; }
     .results { position: fixed; left: 12px; right: 12px; top: auto; max-height: 40vh; }
     #map { display: none; height: calc(100dvh - 60px - env(safe-area-inset-bottom)); position: relative; }
-    body[data-view="plan"] .resulthead, body[data-view="plan"] .kpis, body[data-view="plan"] .advice, body[data-view="plan"] .list,
+    body[data-view="plan"] .resulthead, body[data-view="plan"] .kpis, body[data-view="plan"] .advice, body[data-view="plan"] .nearby, body[data-view="plan"] .list,
     body[data-view="routes"] .controls { display: none; }
     body[data-view="map"] aside { display: none; }
     body[data-view="map"] #map { display: block; }
@@ -413,6 +419,7 @@
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="advice" id="advice"></div>
+    <div class="nearby" id="nearby" hidden></div>
     <div class="list" id="routes"></div>
   </aside>
   <div id="map"></div>
@@ -506,7 +513,7 @@ const store = {
 const DEFAULTS = { drivers: 3, serviceMin: 15, speed: 35, dayHours: 8, parishes: ["Kingston", "Saint Andrew"],
                    depot: [18.0075, -76.7850],  // New Kingston
                    picked: [], startId: null, order: "best", loopArea: true, loopPicked: false,
-                   gRadius: 6, gMax: 12 };
+                   gRadius: 6, gMax: 12, pin: {} };  // pin: stop id -> driver index allowed past the day limit
 let settings = { ...DEFAULTS, ...store.get("routeSettings", {}) };
 let names = store.get("driverNames", []);
 const driverName = i => names[i] || `Driver ${i + 1}`;
@@ -680,8 +687,16 @@ function plan(stops, depot, k, cfg, net, opts = {}) {
     if (!moved) break;
   }
 
+  const groups = Array.from({ length: k }, (_, g) => order.slice(cuts[g], cuts[g + 1]));
+  if (opts.pin) for (const [id, d] of opts.pin) {  // user said: this driver takes this stop, whatever the day limit
+    const x = stops.findIndex(s => s.id === id) + 1;
+    if (x < 1 || d >= k) continue;
+    groups.forEach(gr => { const at = gr.indexOf(x); if (at >= 0) gr.splice(at, 1); });
+    groups[d].push(x);
+  }
+
   return Array.from({ length: k }, (_, g) => {
-    const ids = [0, ...order.slice(cuts[g], cuts[g + 1])], n = ids.length;
+    const ids = [0, ...groups[g]], n = ids.length;
     const m = new Float64Array(n * n);
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) m[i * n + j] = M[ids[i] * S + ids[j]];
     // Open path: make every edge back into the start free, so the solver picks the best place to finish.
@@ -816,12 +831,14 @@ function replan() {
   const stops = selecting ? picked.filter(s => s !== start) : data.stops.filter(s => chosen.has(s.parish));
   const available = Math.max(1, Math.min(30, settings.drivers | 0 || 1));
   const opts = { closed: selecting ? settings.loopPicked : settings.loopArea, keepOrder: settings.order === "mine",
-                 rank: selecting ? new Map(picked.map((s, i) => [s.id, i])) : null };
+                 rank: selecting ? new Map(picked.map((s, i) => [s.id, i])) : null,
+                 pin: new Map(Object.entries(settings.pin || {}).filter(([id]) => stops.some(s => s.id === id))) };
+  const overridden = new Set(opts.pin.values());  // drivers whose day limit the user chose to stretch
   let routes;
   if (selecting) {  // a hand-picked set uses as few drivers as fit the working day
     for (let k = 1; k <= Math.min(available, Math.max(1, stops.length)); k++) {
       routes = plan(stops, origin.p, k, settings, net, opts);
-      if (Math.max(...routes.map(r => r.min)) <= settings.dayHours * 60) break;
+      if (Math.max(0, ...routes.filter((_, i) => !overridden.has(i)).map(r => r.min)) <= settings.dayHours * 60) break;
     }
   } else routes = plan(stops, origin.p, available, settings, net, opts);
 
@@ -948,6 +965,44 @@ $("findGroups").onclick = async () => {
   el.oninput = () => { const v = parseFloat(el.value); if (v >= +el.min && v <= +el.max) { settings[key] = v; save(); } };
 });
 
+// Two drivers heading into the same area: when a stop on one route sits close to another driver's
+// stop but that driver has no room left in the day, offer to stretch that driver's limit instead.
+const NEAR_KM = 5;
+function drawNearby(routes, origin) {
+  const box = $("nearby"), dayMin = settings.dayHours * 60, pin = settings.pin || {};
+  const offers = [];
+  routes.forEach((from, b) => from.visits.forEach(v => {
+    if (pin[v.stop.id] != null) return;
+    let best = null;
+    routes.forEach((to, a) => {
+      if (a === b || !to.visits.length) return;
+      for (const w of to.visits) {
+        const km = net.km(v.stop.node, w.stop.node);
+        if (km <= NEAR_KM && (!best || km < best.km)) best = { a, km, near: w.stop };
+      }
+    });
+    if (!best) return;
+    const addMin = 2 * best.km / settings.speed * 60 + settings.serviceMin;  // out-and-back detour, an upper bound
+    if (routes[best.a].min + addMin <= dayMin) return;  // there is room, so the planner's split already stands
+    offers.push({ ...best, b, stop: v.stop, addMin });
+  }));
+  offers.sort((x, y) => x.km - y.km);
+  const active = Object.entries(pin).filter(([id, d]) => routes[d]?.visits.some(v => v.stop.id === id));
+  box.hidden = !offers.length && !active.length;
+  box.innerHTML = offers.slice(0, 3).map((o, n) => `<div class="row"><span><b>${esc(driverName(o.b))}</b> and <b>${esc(driverName(o.a))}</b> are both heading to this area:
+      ${esc(o.stop.merchants[0])} is ${o.km.toFixed(1)} km from ${esc(o.near.merchants[0])}. Let ${esc(driverName(o.a))} take it (about +${fmtMin(o.addMin)}, past the ${settings.dayHours}h limit)?</span>
+      <button data-offer="${n}">Override limit</button></div>`).join("")
+    + active.map(([id, d]) => `<div class="row"><span>${esc(driverName(+d))} may go past the day limit to cover ${esc(byId[id].merchants[0])}.</span>
+      <button data-undo="${esc(id)}">Undo</button></div>`).join("");
+  box.querySelectorAll("[data-offer]").forEach(b => b.onclick = () => {
+    const o = offers[+b.dataset.offer];
+    settings.pin = { ...pin, [o.stop.id]: o.a }; save(); replan();
+  });
+  box.querySelectorAll("[data-undo]").forEach(b => b.onclick = () => {
+    const { [b.dataset.undo]: _, ...rest } = pin; settings.pin = rest; save(); replan();
+  });
+}
+
 function draw(routes, stops, origin, { selecting, available }) {
   layers.forEach(l => map.removeLayer(l));
   layers = []; markers = {};
@@ -976,6 +1031,8 @@ function draw(routes, stops, origin, { selecting, available }) {
   $("advice").textContent = longest > dayMin
     ? `Routes run past a ${settings.dayHours}h day — about ${needed} drivers would fit${selecting ? "" : ", or pick fewer parishes"}.`
     : selecting && used.length < available ? `Using ${used.length} of ${available} drivers — the selection fits in a ${settings.dayHours}h day.` : "";
+  const pinned = new Set(Object.values(settings.pin || {}));
+  drawNearby(routes, origin);
   const routesEl = $("routes");
   routesEl.innerHTML = stops.length ? "" : selecting
     ? '<div class="empty">Select another terminal to route to.</div>'
@@ -1013,7 +1070,7 @@ function draw(routes, stops, origin, { selecting, available }) {
       <div class="dhead">
         <span class="swatch" style="background:${color}"></span>
         <input class="dname" value="${esc(driverName(i))}" placeholder="Driver ${i + 1}" aria-label="Driver name" spellcheck="false">
-        <span class="dstats">${r.visits.length} stops · ${r.km.toFixed(0)} km<br>${fmtMin(r.min)}${over ? '<span class="tag over">OVER DAY</span>' : ""}</span>
+        <span class="dstats">${r.visits.length} stops · ${r.km.toFixed(0)} km<br>${fmtMin(r.min)}${over ? `<span class="tag over">${pinned.has(i) ? "LIMIT OVERRIDDEN" : "OVER DAY"}</span>` : ""}</span>
       </div>
       <div class="bar" title="Working time relative to the longest route"><i style="width:${r.min / maxMin * 100}%;background:${over ? "var(--danger)" : color}"></i></div>
       <div class="body">${r.visits.length ? `
@@ -1062,13 +1119,16 @@ function draw(routes, stops, origin, { selecting, available }) {
     if (solo) solo.onclick = () => {
       const isSolo = card.dataset.solo === "1";
       routesEl.querySelectorAll(".driver").forEach((c, j) => {
-        const show = isSolo || j === i;
-        c.classList.toggle("dim", !show); c.dataset.solo = "";
-        show ? map.addLayer(routeGroups[j]) : map.removeLayer(routeGroups[j]);
+        const show = isSolo || j === i, only = !isSolo && j === i;
+        c.classList.toggle("dim", !show);
+        c.dataset.solo = only ? "1" : "";
+        const b = c.querySelector("[data-solo]");  // every card's label must follow, not just the clicked one
+        if (b) b.textContent = only ? "Show all routes" : "Show only this route";
+        const g = routeGroups[j];
+        if (g) show ? map.addLayer(g) : map.removeLayer(g);
       });
-      card.dataset.solo = isSolo ? "" : "1";
-      solo.textContent = isSolo ? "Show only this route" : "Show all routes";
-      if (!isSolo) map.fitBounds([origin.show, ...r.visits.map(v => v.stop.show)], { padding: [30, 30] });
+      const pts = isSolo ? bounds : [origin.show, ...r.visits.map(v => v.stop.show)];
+      if (pts.length > 1) map.fitBounds(pts, { padding: [30, 30] });
     };
     routesEl.appendChild(card);
   });
@@ -1096,7 +1156,7 @@ $("loop").onchange = () => {
 };
 $("order").onchange = () => { settings.order = $("order").value; save(); replan(); };
 $("start").onchange = () => { settings.startId = $("start").value || null; save(); replan(); };
-$("clearPick").onclick = () => { settings.picked = []; settings.startId = null; save(); fitNext = true; drawPicked(); replan(); };
+$("clearPick").onclick = () => { settings.pin = {}; settings.picked = []; settings.startId = null; save(); fitNext = true; drawPicked(); replan(); };
 
 // Terminal search: terminal ID, merchant name or address.
 let hits = [], hl = 0;
