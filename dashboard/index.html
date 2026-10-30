@@ -523,7 +523,7 @@ const save = () => store.set("routeSettings", settings);
 // Road distances: straight line x a winding factor for local hops; long hops
 // follow the main-road network between towns (shortest paths, Floyd-Warshall).
 // ---------------------------------------------------------------------------
-const ROAD_FACTOR = 1.3;
+const ROAD_FACTOR = 1.35; // fitted: median road/straight-line ratio of 80 Google pairs (scripts/calibrate.js)
 const LOCAL_KM = 10;
 const hav = (a, b) => {
   const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
@@ -968,14 +968,16 @@ $("findGroups").onclick = async () => {
 // Two drivers heading into the same area: when a stop sits closer to another driver's route than to
 // the rest of its own, ask the scheduler whether to move it there. Applies at any route size.
 const NEAR_KM = 8, MARGIN_KM = 0.5;  // ignore far-off routes, and near-ties so a stop can't flip-flop
-function drawNearby(routes, origin) {
-  const box = $("nearby"), pin = settings.pin || {};
-  const offers = [];
+const roadKm = new Map();  // "stopA|stopB" -> real road km (null when unavailable), so each pair is asked once
+let nearSeq = 0;
+async function drawNearby(routes, origin) {
+  const box = $("nearby"), pin = settings.pin || {}, seq = ++nearSeq;
+  const cands = [];
   routes.forEach((from, b) => from.visits.forEach(v => {
     if (pin[v.stop.id] != null) return;
-    let own = Infinity;  // closest the stop gets to the rest of its own route (or the start, if it is alone)
-    for (const w of from.visits) if (w !== v) own = Math.min(own, net.km(v.stop.node, w.stop.node));
-    if (own === Infinity) own = net.km(v.stop.node, net.node(origin.p));
+    let own = Infinity, ownStop = null;  // closest the stop gets to the rest of its own route (or the start, if it is alone)
+    for (const w of from.visits) if (w !== v) { const k = net.km(v.stop.node, w.stop.node); if (k < own) { own = k; ownStop = w.stop; } }
+    if (!ownStop) own = net.km(v.stop.node, net.node(origin.p));
     let best = null;
     routes.forEach((to, a) => {
       if (a === b) return;
@@ -984,23 +986,45 @@ function drawNearby(routes, origin) {
         if (km <= NEAR_KM && km + MARGIN_KM < own && (!best || km < best.km)) best = { a, km, near: w.stop };
       }
     });
-    if (best) offers.push({ ...best, b, own, stop: v.stop });
+    if (best) cands.push({ ...best, b, own, ownStop, stop: v.stop, real: false });
   }));
-  offers.sort((x, y) => (y.own - y.km) - (x.own - x.km));
+  cands.sort((x, y) => (y.own - y.km) - (x.own - x.km));
+  const top = cands.slice(0, 3);
   const active = Object.entries(pin).filter(([id, d]) => routes[d]?.visits.some(v => v.stop.id === id));
-  box.hidden = !offers.length && !active.length;
-  box.innerHTML = offers.slice(0, 3).map((o, n) => `<div class="row"><span><b>${esc(o.stop.merchants[0])}</b> is on ${esc(driverName(o.b))}'s route but is closer to
-      ${esc(driverName(o.a))}'s (${o.km.toFixed(1)} km from ${esc(o.near.merchants[0])}, vs ${o.own.toFixed(1)} km on its own route). Add it to ${esc(driverName(o.a))}'s route?</span>
-      <button data-offer="${n}">Add to ${esc(driverName(o.a))}</button></div>`).join("")
-    + active.map(([id, d]) => `<div class="row"><span>${esc(byId[id].merchants[0])} was moved to ${esc(driverName(+d))}'s route by you.</span>
-      <button data-undo="${esc(id)}">Undo</button></div>`).join("");
-  box.querySelectorAll("[data-offer]").forEach(b => b.onclick = () => {
-    const o = offers[+b.dataset.offer];
-    settings.pin = { ...pin, [o.stop.id]: o.a }; save(); replan();
-  });
-  box.querySelectorAll("[data-undo]").forEach(b => b.onclick = () => {
-    const { [b.dataset.undo]: _, ...rest } = pin; settings.pin = rest; save(); replan();
-  });
+
+  const paint = offers => {
+    box.hidden = !offers.length && !active.length;
+    box.innerHTML = offers.map((o, n) => `<div class="row"><span><b>${esc(o.stop.merchants[0])}</b> is on ${esc(driverName(o.b))}'s route but is closer to
+        ${esc(driverName(o.a))}'s${o.real ? " by road" : ""} (${o.km.toFixed(1)} km from ${esc(o.near.merchants[0])}, vs ${o.own.toFixed(1)} km ${o.ownStop || !o.real ? "on its own route" : "from the start"}${o.real ? "" : ", estimated"}). Add it to ${esc(driverName(o.a))}'s route?</span>
+        <button data-offer="${n}">Add to ${esc(driverName(o.a))}</button></div>`).join("")
+      + active.map(([id, d]) => `<div class="row"><span>${esc(byId[id].merchants[0])} was moved to ${esc(driverName(+d))}'s route by you.</span>
+        <button data-undo="${esc(id)}">Undo</button></div>`).join("");
+    box.querySelectorAll("[data-offer]").forEach(b => b.onclick = () => {
+      const o = offers[+b.dataset.offer];
+      settings.pin = { ...pin, [o.stop.id]: o.a }; save(); replan();
+    });
+    box.querySelectorAll("[data-undo]").forEach(b => b.onclick = () => {
+      const { [b.dataset.undo]: _, ...rest } = pin; settings.pin = rest; save(); replan();
+    });
+  };
+  paint([]);
+  if (!top.length) return;
+
+  // The estimate only shortlists; confirm each suggestion with real road distance before showing it.
+  const id = (x, y) => `${x.id}|${y.id}`;
+  const need = top.flatMap(o => [[o.stop, o.near], ...(o.ownStop ? [[o.stop, o.ownStop]] : [])]).filter(([x, y]) => !roadKm.has(id(x, y)));
+  if (need.length) {
+    try {
+      const { km } = await api("/api/near", { pairs: need.map(([x, y]) => ({ a: x.id, b: y.id })) });
+      need.forEach(([x, y], i) => roadKm.set(id(x, y), km[i]));
+    } catch { need.forEach(([x, y]) => roadKm.set(id(x, y), null)); }
+    if (seq !== nearSeq) return;  // the plan changed while waiting
+  }
+  paint(top.flatMap(o => {
+    const other = roadKm.get(id(o.stop, o.near)), own = o.ownStop ? roadKm.get(id(o.stop, o.ownStop)) : o.own;
+    if (other == null || own == null) return [o];  // no road data (budget used up, offline): keep the estimate, labelled
+    return other + MARGIN_KM < own ? [{ ...o, km: other, own, real: true }] : [];
+  }));
 }
 
 function draw(routes, stops, origin, { selecting, available }) {
