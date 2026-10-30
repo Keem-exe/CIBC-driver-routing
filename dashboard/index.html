@@ -331,7 +331,7 @@
         <summary><span class="num">1</span>Team &amp; working day</summary>
         <div class="stepbody">
           <div class="fields">
-            <label class="field"><span>Drivers <button type="button" class="tip" data-tip="How many drivers you have today. When you pick specific terminals, the planner only uses as many as it needs to fit the working day.">i</button></span>
+            <label class="field"><span>Drivers <button type="button" class="tip" data-tip="How many drivers you have today. The planner uses fewer when drivers would be heading the same way and one can cover both within the working day (see Merge overlapping routes).">i</button></span>
               <input type="number" id="drivers" min="1" max="30" inputmode="numeric"></label>
             <label class="field"><span>Minutes per stop <button type="button" class="tip" data-tip="Time spent at each merchant (parking, walking in, servicing the terminal). It is added to the driving time when working out how long a route takes.">i</button></span>
               <input type="number" id="service" min="0" max="240" inputmode="numeric"></label>
@@ -340,6 +340,7 @@
             <label class="field"><span>Day length (hours) <button type="button" class="tip" data-tip="How long one driver can work. Routes longer than this are flagged OVER DAY, and the planner tells you how many drivers would fit.">i</button></span>
               <input type="number" id="day" min="1" max="24" step="0.5" inputmode="decimal"></label>
           </div>
+          <label class="check"><input type="checkbox" id="merge"> Merge overlapping routes <button type="button" class="tip" data-tip="When two drivers are heading the same way and one driver can cover both within the working day, combine them into one route. Untick to spread the stops across every driver you set.">i</button></label>
           <label class="check"><input type="checkbox" id="loop"> Return to the start at the end
             <button type="button" class="tip" data-tip="On: each driver finishes back where they started (a round trip). Off: the route ends at the last stop and the planner chooses the best stop to finish on, which is usually shorter.">i</button></label>
         </div>
@@ -515,7 +516,7 @@ const store = {
 const DEFAULTS = { drivers: 3, serviceMin: 15, speed: 35, dayHours: 8, parishes: ["Kingston", "Saint Andrew"],
                    depot: [18.0075, -76.7850],  // New Kingston
                    picked: [], startId: null, order: "best", loopArea: true, loopPicked: false,
-                   gRadius: 6, gMax: 5, pin: {} };  // pin: stop id -> driver index the scheduler moved it to
+                   gRadius: 6, gMax: 5, pin: {}, merge: true };  // pin: stop id -> driver index the scheduler moved it to
 let settings = { ...DEFAULTS, ...store.get("routeSettings", {}) };
 let names = store.get("driverNames", []);
 const driverName = i => names[i] || `Driver ${i + 1}`;
@@ -821,6 +822,26 @@ map.on("popupopen", e => {
   if (r) r.onclick = () => { map.closePopup(); resetDepot(); };
 });
 
+// Splitting by angle gives every driver a wedge, so two drivers can end up heading the same way.
+// Repeatedly merge the pair whose combined route saves the most km, while the merged day still fits.
+function consolidate(routes, origin, opts, dayMin) {
+  const deadline = performance.now() + 600;
+  let list = routes.filter(r => r.visits.length), saved = 0;
+  const from = list.length;
+  while (list.length > 1 && performance.now() < deadline) {
+    let best = null;
+    for (let i = 0; i < list.length && performance.now() < deadline; i++) for (let j = i + 1; j < list.length; j++) {
+      const a = list[i], b = list[j];
+      const m = plan([...a.visits, ...b.visits].map(v => v.stop), origin.p, 1, settings, net, opts)[0];
+      const gain = a.km + b.km - m.km;  // km saved by not driving the shared stretch twice
+      if (m.min <= dayMin && gain >= Math.max(1, 0.25 * Math.min(a.km, b.km)) && (!best || gain > best.gain)) best = { i, j, m, gain };
+    }
+    if (!best) break;
+    list[best.i] = best.m; list.splice(best.j, 1); saved += best.gain;
+  }
+  return { routes: list, from, saved };
+}
+
 function replan() {
   if (!data) return;
   const picked = settings.picked.map(p => byId[p.s]).filter(Boolean);
@@ -852,6 +873,12 @@ function replan() {
     }
   } else routes = plan(stops, origin.p, available, settings, net, opts);
 
+  let merged = null;
+  if (settings.merge && !assigned.length && !opts.pin.size && !opts.keepOrder && routes.length > 1) {
+    const c = consolidate(routes, origin, opts, settings.dayHours * 60);
+    if (c.routes.length < c.from) { routes = c.routes; merged = c; }
+  }
+
   // A Google-refined plan stands in for the instant one while it is for the same stops, start and service time.
   const sig = [origin.p.join(","), opts.closed, settings.serviceMin,
                ...routes.map(r => r.visits.map(v => v.stop.id).sort().join(","))].join("|");
@@ -862,7 +889,7 @@ function replan() {
   $("gbar").hidden = !stops.length;
   $("gstatus").textContent = viaGoogle ? googlePlan.status : "";
   $("refine").textContent = viaGoogle ? "Re-run with Google roads" : "Optimise with Google roads";
-  draw(routes, stops, origin, { selecting, available });
+  draw(routes, stops, origin, { selecting, available, merged });
   if (selecting) scheduleSuggest(picked, origin, opts.closed);
   markGroups();
 }
@@ -1010,6 +1037,7 @@ $("assignGroups").onclick = () => {
 // Two drivers heading into the same area: when a stop sits closer to another driver's route than to
 // the rest of its own, ask the scheduler whether to move it there. Applies at any route size.
 const NEAR_KM = 8, MARGIN_KM = 0.5;  // ignore far-off routes, and near-ties so a stop can't flip-flop
+let repaintNearby = () => {};
 const roadKm = new Map();  // "stopA|stopB" -> real road km (null when unavailable), so each pair is asked once
 let nearSeq = 0;
 async function drawNearby(routes, origin) {
@@ -1034,7 +1062,9 @@ async function drawNearby(routes, origin) {
   const top = cands.slice(0, 3);
   const active = Object.entries(pin).filter(([id, d]) => routes[d]?.visits.some(v => v.stop.id === id));
 
+  let shown = [];
   const paint = offers => {
+    shown = offers;
     box.hidden = !offers.length && !active.length;
     box.innerHTML = offers.map((o, n) => `<div class="row"><span><b>${esc(o.stop.merchants[0])}</b> is on ${esc(driverName(o.b))}'s route but is closer to
         ${esc(driverName(o.a))}'s${o.real ? " by road" : ""} (${o.km.toFixed(1)} km from ${esc(o.near.merchants[0])}, vs ${o.own.toFixed(1)} km ${o.ownStop || !o.real ? "on its own route" : "from the start"}${o.real ? "" : ", estimated"}). Add it to ${esc(driverName(o.a))}'s route?</span>
@@ -1049,6 +1079,7 @@ async function drawNearby(routes, origin) {
       const { [b.dataset.undo]: _, ...rest } = pin; settings.pin = rest; save(); replan();
     });
   };
+  repaintNearby = () => paint(shown);
   paint([]);
   if (!top.length) return;
 
@@ -1069,7 +1100,7 @@ async function drawNearby(routes, origin) {
   }));
 }
 
-function draw(routes, stops, origin, { selecting, available }) {
+function draw(routes, stops, origin, { selecting, available, merged }) {
   layers.forEach(l => map.removeLayer(l));
   layers = []; markers = {};
   depotMarker.setLatLng(settings.depot);
@@ -1096,6 +1127,7 @@ function draw(routes, stops, origin, { selecting, available }) {
   const needed = Math.ceil(routes.reduce((a, r) => a + r.min, 0) / dayMin);
   $("advice").textContent = longest > dayMin
     ? `Routes run past a ${settings.dayHours}h day — about ${needed} drivers would fit${selecting ? "" : ", or pick fewer parishes"}.`
+    : merged ? `Merged ${merged.from} routes into ${used.length}: drivers heading the same way now share one route (saves ${merged.saved.toFixed(0)} km, every day still fits ${settings.dayHours}h). Untick "Merge overlapping routes" to keep all ${available} drivers busy.`
     : selecting && used.length < available ? `Using ${used.length} of ${available} drivers — the selection fits in a ${settings.dayHours}h day.` : "";
   const pinned = new Set(Object.values(settings.pin || {}));
   drawNearby(routes, origin);
@@ -1172,6 +1204,7 @@ function draw(routes, stops, origin, { selecting, available }) {
       names[i] = nameInput.value.trim();
       store.set("driverNames", names);
       if (!names[i]) nameInput.value = driverName(i);
+      repaintNearby(); markGroups();  // text built from driver names must follow the rename
     };
     card.querySelectorAll("li[data-key]").forEach(li => li.onclick = e => {
       if (e.target.closest("a")) return;
@@ -1216,6 +1249,8 @@ const replanSoon = () => { clearTimeout(timer); timer = setTimeout(replan, 120);
 function resetDepot() { settings.depot = DEFAULTS.depot; save(); fitNext = true; replan(); toast("Depot moved back to New Kingston"); }
 $("depotReset").onclick = resetDepot;
 $("depotFind").onclick = () => { depotSeen(); if (isMobile.matches) setView("map"); map.setView(settings.depot, Math.max(map.getZoom(), 12)); depotMarker.openPopup(); };
+$("merge").checked = settings.merge;
+$("merge").onchange = () => { settings.merge = $("merge").checked; save(); replan(); };
 $("loop").onchange = () => {
   settings[settings.picked.length ? "loopPicked" : "loopArea"] = $("loop").checked;
   save(); replan();
