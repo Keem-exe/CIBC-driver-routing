@@ -304,6 +304,10 @@
   .nav a.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
   .nav button { font-size: 12px; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
   .empty .btn { margin-top: 10px; }
+  .tipline[hidden] { display: none; }
+  .nav { flex-wrap: wrap; }
+  .check input { width: 18px; height: 18px; flex: none; }
+  @media (max-width: 800px) { .check { min-height: 40px; } .check input { width: 22px; height: 22px; } }
   #tabbar { display: none; }
   @media (max-width: 800px) {
     html, body { height: auto; }
@@ -345,6 +349,24 @@
   @media print { header, .resulthead, .mapkey, #toast, #tipbox, dialog, .tipline, .scope, .gbar, .nearby { display: none !important; }
                  .panel[data-step="1"], .panel[data-step="2"] { display: none !important; } .panel[data-step="3"] { display: block !important; }
                  .nav button { display: none; } }
+
+  /* ---- Cross-browser: Safari / iOS / older Chrome ---- */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  button, input, select, summary, .tip { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  input[type=search] { -webkit-appearance: none; appearance: none; border-radius: 6px; }
+  input[type=search]::-webkit-search-decoration { -webkit-appearance: none; }
+  button { -webkit-appearance: none; appearance: none; }
+  @supports not (background: color-mix(in srgb, red 10%, transparent)) {
+    .mode { background: var(--chip); border: 1px solid var(--accent); }
+    #btable tbody tr.sel { background: var(--chip); }
+  }
+  @supports not (height: 100dvh) {
+    @media (max-width: 800px) {
+      aside { min-height: 100vh; }
+      #map { height: calc(100vh - 60px - env(safe-area-inset-bottom)); }
+      dialog.modal, dialog.modal.wide { height: 100vh; max-height: 100vh; }
+    }
+  }
 </style>
 </head>
 <body>
@@ -474,7 +496,7 @@
       <div class="kpis" id="kpis"></div>
       <div class="advice" id="advice"></div>
       <div class="nearby" id="nearby" hidden></div>
-      <div class="hint tipline">Tap a driver to open their route. Under <b>More</b>, Bing Maps often finds Jamaican addresses that Google misses; Waze and Apple Maps open one stop at a time.</div>
+      <div class="hint tipline" id="tipline">Tap a driver to open their route. Under <b>More</b>, Bing Maps often finds Jamaican addresses that Google misses; Waze and Apple Maps open one stop at a time.</div>
       <div class="list" id="routes"></div>
     </section>
   </aside>
@@ -1224,7 +1246,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
         merged.from > used.length ? `Merged ${merged.from} routes into ${used.length}: drivers heading the same way now share one route (saves ${merged.saved.toFixed(0)} km).` : "",
         merged.moved ? `Moved ${merged.moved} outlying stop${merged.moved > 1 ? "s" : ""} to the driver already heading there (saves ${merged.movedKm.toFixed(0)} km).` : "",
         `Every day still fits ${settings.dayHours}h. To use all ${available} drivers, untick "Combine routes heading the same way" under Advanced in step 1.`].filter(Boolean).join(" ")
-    : selecting && used.length < available ? `Using ${used.length} of ${available} drivers — the selection fits in a ${settings.dayHours}h day.` : "";
+    : selecting && used.length && used.length < available ? `Using ${used.length} of ${available} drivers — the selection fits in a ${settings.dayHours}h day.` : "";
   const pinned = new Set(Object.values(settings.pin || {}));
   drawNearby(routes, origin);
   const routesEl = $("routes");
@@ -1241,7 +1263,9 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
   }
 
   const routeGroups = [];
+  $("tipline").hidden = !stops.length;
   routes.forEach((r, i) => {
+    if (!stops.length) return;  // nothing to show yet: the empty-state message above is enough
     const color = COLORS[i % COLORS.length];
     const group = L.layerGroup().addTo(map);
     layers.push(group); routeGroups.push(group);
