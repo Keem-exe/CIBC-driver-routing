@@ -112,11 +112,13 @@
   .day { text-align: left; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
   .day:hover { border-color: var(--accent); }
   .day[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
-  .day .t { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; }
-  .day .t span { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .day .t { font-weight: 700; }
+  .day .m { margin-top: 2px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .day .names { margin-top: 4px; font-size: 12px; color: var(--muted); }
   .tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 0 6px; border-radius: 4px; border: 1px solid currentColor; margin-left: 6px; vertical-align: middle; }
   .tag.ok { color: var(--ok); }
+  .tag.warn { color: var(--warn); }
+  .opt { font-weight: 500; }
 
   .pick { display: grid; gap: 2px; max-height: 340px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
   .pick label { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 10px 12px; cursor: pointer; align-items: start; }
@@ -133,16 +135,39 @@
   .stat b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .stat span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
   .stat em { font-style: normal; font-size: 11px; font-weight: 600; margin-left: 4px; }
+  .stats.four { grid-template-columns: repeat(4, 1fr); }
+  .stats.four .stat b { font-size: 15px; }
   .better { color: var(--ok); }
   .worse { color: var(--danger); }
 
   .cmp { margin: 12px 0; }
   .sug { margin-top: 10px; border: 1px solid var(--ok); background: var(--okbg); border-radius: 10px; padding: 10px 12px; }
   .sug h3 { margin: 0 0 6px; font-size: 13px; color: var(--ok); }
+  .sug p { margin: 0 0 8px; font-size: 13px; }
   .sug ul { margin: 0 0 8px; padding-left: 18px; font-size: 13px; }
   .sug li { margin: 3px 0; }
+  .sug .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sug.advise { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 9%, var(--panel)); }
+  .sug.advise h3 { color: var(--warn); }
   .sug .ids, .stops .ids { font-size: 11px; color: var(--muted); }
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .opt-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; min-width: 0; background: var(--panel); }
+  .opt-card.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .opt-card.rec { border-color: var(--ok); }
+  .opt-card.rec.on { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ok) 25%, transparent); }
+  .opt-card .oh { font-weight: 700; font-size: 14px; }
+  .opt-card .osub { color: var(--muted); font-size: 11px; }
+  .opt-card .obadges { min-height: 22px; margin: 6px 0 2px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .opt-card .obadges .tag { margin: 0; font-size: 11px; padding: 1px 6px; }
+  .opt-card dl { margin: 4px 0 10px; display: grid; gap: 4px; }
+  .opt-card dl div { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .opt-card dt { color: var(--muted); font-size: 12px; }
+  .opt-card dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 13px; }
+  .opt-card .oact { margin-top: auto; display: grid; gap: 6px; }
+  .opt-card .oact .btn { width: 100%; }
+  .opt-card .oact .btn[aria-pressed="true"] { background: var(--chip); color: var(--text); }
   .good-note { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--okbg); color: var(--ok); font-size: 13px; font-weight: 600; }
+  .good-note.neutral { background: var(--chip); color: var(--text); font-weight: 500; }
 
   .go { margin: 14px 0; display: grid; gap: 8px; }
   .go h3, .listh { margin: 0; font-size: 13px; }
@@ -183,6 +208,8 @@
     .mapbtn { display: inline-flex; }
     .toast { bottom: 80px; }
   }
+  @media (max-width: 480px) { .stats.four { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 360px) { .vs { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body data-view="plan">
@@ -238,6 +265,22 @@
         <input id="n" type="number" min="1" max="24" inputmode="numeric" aria-label="Stops today">
         <button type="button" id="nPlus" aria-label="One more stop">+</button>
       </div>
+      <span class="label" id="tLabel">Terminals to deliver today <span class="opt">(optional)</span></span>
+      <div class="stepper" role="group" aria-labelledby="tLabel">
+        <button type="button" id="tMinus" aria-label="One fewer terminal">−</button>
+        <input id="t" type="number" min="0" max="500" inputmode="numeric" placeholder="Any" aria-label="Target terminals today">
+        <button type="button" id="tPlus" aria-label="One more terminal">+</button>
+      </div>
+      <div class="sub" id="tNote" style="margin-top:6px"></div>
+      <div id="optWrap" hidden>
+        <span class="label">What matters most?</span>
+        <div class="seg" id="optSeg" role="group" aria-label="What to optimize for">
+          <button type="button" data-opt="terminals">Most terminals</button>
+          <button type="button" data-opt="shortest">Shortest route</button>
+          <button type="button" data-opt="both">Both</button>
+        </div>
+        <div class="sub" id="optNote" style="margin-top:6px"></div>
+      </div>
       <span class="label">Where do you start?</span>
       <div class="seg" id="startSeg" role="group" aria-label="Start point">
         <button type="button" data-start="depot">Depot (New Kingston)</button>
@@ -281,9 +324,14 @@ const store = {
 const DEPOT = [18.0075, -76.785];  // New Kingston, same as the scheduler page
 const CFG = { speed: 35, serviceMin: 15 };
 const MAX_STOPS = 24;  // Google Maps and Google's road lookup both stop being useful beyond this
-let st = { ids: [], n: 5, mode: "auto", start: "depot", loop: false, chosen: [], day: 0, focus: "mine", ...store.get("driverState", {}) };
+let st = { ids: [], n: 5, t: 0, opt: "both", mode: "auto", start: "depot", loop: false, chosen: [], day: 0, focus: "mine", ...store.get("driverState", {}) };
+if (!["terminals", "shortest", "both"].includes(st.opt)) st.opt = "both";
+st.t = Math.max(0, Math.round(Number(st.t)) || 0);
 const save = () => store.set("driverState", st);
-let data = null, net = null, byId = {}, byTerminal = new Map(), here = null, prevChosen = null;
+let data = null, net = null, byId = {}, byTerminal = new Map(), here = null;
+let prevChosen = null;  // { chosen, n } to go back to after "use recommended"
+let TC = new Map();     // stop id -> how many of MY terminals are there (refreshed by myStops)
+let kept = "", keptAuto = "";  // signature of a recommendation the driver turned down, so it stops nagging
 const gRoutes = new Map();  // routeKey -> route refined with Google road data
 
 let toastTimer = 0;
@@ -309,7 +357,9 @@ function myStops() {
     if (!out.has(s.id)) out.set(s.id, { stop: s, terms: [] });
     out.get(s.id).terms.push(s.terminals.find(t => t.id === id));
   }
-  return [...out.values()];
+  const res = [...out.values()];
+  TC = new Map(res.map(p => [p.stop.id, p.terms.length]));
+  return res;
 }
 const termsOf = (pool, stop) => pool.find(p => p.stop.id === stop.id)?.terms ?? [];
 const idList = terms => terms.map(t => `<code>${esc(t.id)}</code>`).join(" ");
@@ -410,6 +460,127 @@ function suggest(chosen, pool) {
 }
 
 // ---------------------------------------------------------------------------
+// Terminal target. A stop can hold several of my terminals, so "stops" and "terminals" are different
+// limits. optimise() finds at most `cap` stops that reach `want` terminals:
+//   "terminals": reach the target with as few stops as possible (then the shorter drive)
+//   "both":      reach the target with the shortest drive
+// If the target can't be reached it gets as close as it can. ("shortest" ignores the target: suggest().)
+// ---------------------------------------------------------------------------
+const tcOf = s => TC.get(s.id) ?? 0;
+const termSum = set => set.reduce((a, s) => a + tcOf(s), 0);
+const sameSet = (a, b) => a.length === b.length && a.every(s => b.includes(s));
+
+/** What the target asks for, and whether N stops can possibly deliver it (best case: the N busiest stops). */
+function goal(pool) {
+  const counts = pool.map(p => p.terms.length).sort((a, b) => b - a);
+  const total = counts.reduce((a, b) => a + b, 0), want = st.t > 0 ? Math.min(st.t, total) : 0;
+  let acc = 0, needK = 0;
+  if (want) for (const c of counts) { needK++; acc += c; if (acc >= want) break; }
+  const maxN = counts.slice(0, st.n).reduce((a, b) => a + b, 0);
+  return { total, want, needK, maxN, over: st.t > total, big: needK > MAX_STOPS, recCap: Math.min(needK, MAX_STOPS),
+           active: want > 0 && st.opt !== "shortest", short: want > 0 && maxN < want };
+}
+
+function optimise(stops, cap, want, mode, seed = null) {
+  const o = origin();
+  const sc = set => ({ cap: Math.min(termSum(set), want), n: set.length, km: set.length ? route(set).km : 0 });
+  const better = (a, b) => a.cap !== b.cap ? a.cap > b.cap : (mode === "terminals" && a.n !== b.n) ? a.n < b.n : a.km < b.km - 1e-6;
+
+  const improve = start => {
+    let set = [...start], cur = sc(set);
+    while (set.length > cap) {  // too many stops: lose the one that costs the least
+      let best = null;
+      for (const s of set) { const rest = set.filter(x => x !== s), v = sc(rest); if (!best || better(v, best.v)) best = { rest, v }; }
+      set = best.rest; cur = best.v;
+    }
+    while (set.length < cap && cur.cap < want) {  // short of the target: add the stop with the most terminals for the least detour
+      const left = stops.filter(s => !set.includes(s));
+      if (!left.length) break;
+      const nodes = set.length ? tourNodes(route(set), o) : [o.node, ...(st.loop ? [o.node] : [])];
+      let pick = left[0], pv = -Infinity;
+      for (const u of left) {
+        const extra = insertCost(nodes, u.node), v = mode === "terminals" ? tcOf(u) * 1000 - extra : tcOf(u) / (extra + 2);
+        if (v > pv) { pv = v; pick = u; }
+      }
+      set = [...set, pick]; cur = sc(set);
+    }
+    for (let again = true; again && set.length > 1;) {  // drop any stop that isn't pulling its weight
+      again = false;
+      for (const s of set) {
+        const rest = set.filter(x => x !== s), v = sc(rest);
+        if (better(v, cur)) { set = rest; cur = v; again = true; break; }
+      }
+    }
+    for (let pass = 0; pass < 4; pass++) {  // swaps: shortlist by estimate, confirm by re-planning
+      const left = stops.filter(s => !set.includes(s));
+      if (!left.length) break;
+      const r = route(set), nodes = tourNodes(r, o), terms = termSum(set), cands = [];
+      r.visits.forEach((v, idx) => {
+        const gain = removeGain(nodes, idx + 1), rest = nodes.filter((_, j) => j !== idx + 1);
+        for (const u of left) {
+          const after = Math.min(terms - tcOf(v.stop) + tcOf(u), want);
+          if (after >= cur.cap) cands.push({ out: v.stop, inn: u, after, est: gain - insertCost(rest, u.node) });
+        }
+      });
+      cands.sort((a, b) => b.after - a.after || b.est - a.est);
+      let best = null;
+      for (const c of cands.slice(0, 12)) {
+        const next = set.filter(x => x !== c.out).concat(c.inn), v = sc(next);
+        if (better(v, best ? best.v : cur)) best = { next, v };
+      }
+      if (!best) break;
+      set = best.next; cur = best.v;
+    }
+    return { set, v: cur };
+  };
+
+  const dist = s => net.km(o.node, s.node);
+  const dense = [...stops].sort((a, b) => tcOf(b) - tcOf(a) || dist(a) - dist(b));
+  const value = [...stops].sort((a, b) => tcOf(b) / (dist(b) + 5) - tcOf(a) / (dist(a) + 5));
+  const near = [...stops].sort((a, b) => dist(a) - dist(b));
+  const starts = [...(seed && seed.length ? [seed] : []), ...new Set([dense[0], dense[1], value[0], near[0]].filter(Boolean))].map(x => Array.isArray(x) ? x : [x]);
+  let best = null;
+  for (const sd of starts) { const r = improve(sd); if (!best || better(r.v, best.v)) best = r; }  // ties go to the earlier (the driver's own) start
+  return best.set;
+}
+
+/** Days that each aim at the target: take the best set from what's left, repeat. */
+function targetDays(stops, cap, want) {
+  let left = [...stops]; const days = [];
+  while (left.length) {
+    let set = optimise(left, cap, want, st.opt);
+    if (!set.length) set = [left[0]];
+    days.push(set); left = left.filter(s => !set.includes(s));
+  }
+  return days.map(g => ({ stops: g, route: route(g) })).sort((a, b) => a.route.km / Math.max(1, termSum(a.stops)) - b.route.km / Math.max(1, termSum(b.stops)));
+}
+const daysMemo = new Map();
+function buildDays(stops, cap, g) {
+  const key = [keyOf(stops, origin()), cap, g.active ? `${g.want}${st.opt}` : "-"].join("#");
+  if (!daysMemo.has(key)) {
+    if (daysMemo.size > 40) daysMemo.clear();
+    daysMemo.set(key, g.active ? targetDays(stops, cap, g.want) : makeDays(stops, cap));
+  }
+  return daysMemo.get(key);
+}
+
+/** "I'll choose" with a target: the best set to switch to, as swap/drop/add steps from the driver's own pick. */
+function recommend(chosen, pool, g) {
+  const cap = g.short ? Math.max(st.n, g.recCap) : st.n;  // more stops than planned, only when N can't reach the target
+  const set = optimise(pool.map(p => p.stop), cap, g.want, st.opt, chosen);
+  const drops = chosen.filter(s => !set.includes(s)), adds = set.filter(s => !chosen.includes(s)), steps = [];
+  for (let i = 0; i < Math.max(drops.length, adds.length); i++) {
+    if (drops[i] && adds[i]) steps.push({ type: "swap", out: drops[i], in: adds[i] });
+    else if (drops[i]) steps.push({ type: "drop", stop: drops[i] });
+    else steps.push({ type: "add", stop: adds[i] });
+  }
+  return { set, steps: sameSet(set, chosen) ? [] : steps, route: route(set) };
+}
+const advise = (chosen, pool) => { const g = goal(pool); return !chosen.length ? null : g.active ? recommend(chosen, pool, g) : suggest(chosen, pool); };
+const chooseSig = () => [st.chosen.join(), st.n, st.t, st.opt, st.loop, st.start].join("|");
+const autoSig = () => [st.ids.join(), st.n, st.t, st.opt, st.loop, st.start].join("|");
+
+// ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
 const chosenStops = pool => {
@@ -436,30 +607,61 @@ function renderPlan() {
   $("s2").hidden = !pool.length;
   $("s3").hidden = !pool.length;
   if (!pool.length) { clearMap(); return; }
+  const g = goal(pool);
   $("n").value = st.n;
+  $("t").value = st.t || "";
   $("loop").checked = st.loop;
+  $("optWrap").hidden = !st.t;
+  $("tNote").textContent = !st.t ? "Leave blank for no target. Set a number and we'll plan around it."
+    : g.over ? `Your list only has ${plural(g.total, "terminal")}, so we'll aim for ${g.total}.` : `Your list has ${plural(g.total, "terminal")} across ${plural(pool.length, "stop")}.`;
+  $("optNote").textContent = { terminals: "Reach your target with as few stops as possible.",
+    shortest: "Plan the shortest drive for your stops. We still show how many terminals each route gets you.",
+    both: "Reach your target with the shortest drive." }[st.opt];
+  document.querySelectorAll("#optSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.opt === st.opt)));
   document.querySelectorAll("#startSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.start === st.start)));
   document.querySelectorAll("#modeSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === st.mode)));
   $("startNote").textContent = st.start === "here" ? (here ? "Using your current location. It stays on this device." : "Allow location access to use this.") : "Routes start at the New Kingston depot.";
   $("modeNote").textContent = st.mode === "auto"
-    ? `We split your ${plural(pool.length, "stop")} into days of ${st.n} that sit close together.`
-    : `Tick the stops you want to do today. We find the best order and suggest changes if some would be quicker.`;
+    ? (g.active ? `We split your ${plural(pool.length, "stop")} into days of up to ${st.n} stops, each aiming for ${g.want} terminals.`
+      : `We split your ${plural(pool.length, "stop")} into days of ${st.n} that sit close together.`)
+    : `Tick the stops you want to do today. We find the best order and suggest changes if some would be better.`;
   st.mode === "auto" ? renderAuto(pool) : renderChoose(pool);
 }
 
 let view = null;  // what the map and the route list are showing right now
 function renderAuto(pool) {
-  const stops = pool.map(p => p.stop);
+  const stops = pool.map(p => p.stop), g = goal(pool);
   $("s3title").textContent = "Your days";
-  const days = makeDays(stops, st.n);
+  const days = buildDays(stops, st.n, g);  // the driver's own plan: up to N stops a day
   st.day = Math.min(st.day, days.length - 1);
-  const short = days.findIndex(d => d.stops.length < st.n);  // the leftover day, wherever it sorts
+  const terms = d => termSum(d.stops);
+  const leftover = !g.short && g.want ? days.findIndex(d => terms(d) < g.want) : -1;  // the day that is simply what's left
+  const totalKm = ds => ds.reduce((a, d) => a + d.route.km, 0);
+
+  let advice = "";
+  if (g.active && g.short && autoSig() !== keptAuto) {  // N stops a day can't reach the target: show what would
+    const rec = g.big ? null : buildDays(stops, g.recCap, g);
+    advice = `<div class="sug advise">
+      <h3>${plural(st.n, "stop")} a day can't reach ${plural(g.want, "terminal")}</h3>
+      <p>The most ${plural(st.n, "stop")} can give is ${plural(g.maxN, "terminal")}. ${g.big
+        ? `Your target needs ${plural(g.needK, "stop")} a day, more than the ${MAX_STOPS} we can plan. Try a lower target.`
+        : `Reaching ${g.want} takes at least ${plural(g.needK, "stop")} a day.`}</p>
+      ${rec ? `<ul>
+        <li>Your plan, ${plural(st.n, "stop")} a day: <b>${plural(days.length, "day")}</b>, ${kmText(totalKm(days))} in all, up to ${plural(terms(days.reduce((a, d) => terms(d) > terms(a) ? d : a)), "terminal")} a day</li>
+        <li>Recommended, ${plural(g.recCap, "stop")} a day: <b>${plural(rec.length, "day")}</b>, ${kmText(totalKm(rec))} in all, ${terms(rec[0]) >= g.want ? `${g.want} terminals on the first day` : `up to ${plural(terms(rec[0]), "terminal")} a day`}</li></ul>` : ""}
+      <div class="btns">${rec ? `<button type="button" class="btn" id="useK" data-k="${g.recCap}">Use ${plural(g.recCap, "stop")} a day</button>` : ""}
+        <button type="button" class="btn ghost" id="keepN">Keep ${plural(st.n, "stop")} a day</button></div>
+    </div>`;
+  }
+  const tagFor = d => !g.want ? "" : terms(d) >= g.want ? '<span class="tag ok">TARGET MET</span>' : `<span class="tag warn">${terms(d)} OF ${g.want}</span>`;
   $("s3body").innerHTML = `
-    <p class="lead">${days.length === 1 ? `You have ${plural(stops.length, "stop")}, so that's one day.` : `${plural(days.length, "day")}, quickest first. Tap a day to see its route.`}
-      ${days.length > 1 && short >= 0 ? `Day ${short + 1} has ${plural(days[short].stops.length, "stop")}, the rest of your list.` : ""}</p>
+    ${advice}
+    <p class="lead" ${advice ? 'style="margin-top:12px"' : ""}>${days.length === 1 ? `You have ${plural(stops.length, "stop")}, so that's one day.` : `${plural(days.length, "day")}, ${g.active ? "best first" : "quickest first"}. Tap a day to see its route.`}
+      ${days.length > 1 && leftover >= 0 ? `Day ${leftover + 1} has ${plural(terms(days[leftover]), "terminal")}, the rest of your list.` : ""}</p>
     <div class="days">${days.map((d, i) => `
       <button type="button" class="day" data-day="${i}" aria-pressed="${i === st.day}">
-        <div class="t"><div>Day ${i + 1}${i === 0 && days.length > 1 ? '<span class="tag ok">QUICKEST</span>' : ""}</div><span>${plural(d.stops.length, "stop")} · ${kmText(d.route.km)} · ${fmtMin(d.route.min)}</span></div>
+        <div class="t">Day ${i + 1}${i === 0 && days.length > 1 ? `<span class="tag ok">${g.active ? "BEST" : "QUICKEST"}</span>` : ""}${tagFor(d)}</div>
+        <div class="m">${plural(d.stops.length, "stop")} · ${plural(terms(d), "terminal")} · ${kmText(d.route.km)} · ${fmtMin(d.route.min)}</div>
         <div class="names">${esc(d.stops.map(s => s.merchants[0]).join(" · "))}</div>
       </button>`).join("")}</div>
     <div id="detail"></div>`;
@@ -469,48 +671,102 @@ function renderAuto(pool) {
   drawMap();
 }
 
-function renderChoose(pool) {
-  const o = origin();
-  const order = [...pool].sort((a, b) => net.km(o.node, a.stop.node) - net.km(o.node, b.stop.node));
-  const chosen = chosenStops(pool), sug = suggest(chosen, pool);
-  const mineRoute = route(chosen);
-  $("s3title").textContent = "Choose your stops";
-  const better = sug && sug.steps.length;
-  if (!better && st.focus === "suggested") st.focus = "mine";
-  const onSug = better && st.focus === "suggested";
-  const showRoute = onSug ? sug.route : mineRoute;
+const upDiff = d => d ? `<em class="${d > 0 ? "better" : "worse"}">${d > 0 ? "+" : "−"}${Math.abs(d)}</em>` : "";
 
-  const cmp = !mineRoute ? "" : `
+/** One line on what switching does: time saved (or added) and terminals gained (or lost). */
+function verdictText(chosen, sug, mineRoute) {
+  const dMin = sug.route.min - mineRoute.min, dT = termSum(sug.set) - termSum(chosen), parts = [];
+  if (dMin <= -0.5) parts.push(`saves ${fmtMin(-dMin)}`);
+  else if (dMin >= 0.5) parts.push(`takes ${fmtMin(dMin)} longer`);
+  else parts.push("takes about the same time");
+  if (dT > 0) parts.push(`delivers ${plural(dT, "more terminal")}`);
+  else if (dT < 0) parts.push(`delivers ${plural(-dT, "fewer terminal")}`);
+  return `Switching ${parts.join(" and ")}.`;
+}
+
+/** Your pick (in its best order) and the recommendation side by side, so the driver sees what each gives before choosing. */
+function compareCards(chosen, sug, mineRoute, g, onSug) {
+  const mineTerms = termSum(chosen), sugTerms = termSum(sug.set), name = g.active ? "Recommended" : "Suggested";
+  const dMin = sug.route.min - mineRoute.min, dKm = sug.route.km - mineRoute.km, dT = sugTerms - mineTerms, dS = sug.set.length - chosen.length;
+  const badges = [
+    Math.abs(dMin) < 0.5 ? ["Same time", "ok"] : dMin < 0 ? [`Saves ${fmtMin(-dMin)}`, "ok"] : [`${fmtMin(dMin)} longer`, "warn"],
+    dT > 0 ? [`+${plural(dT, "terminal")}`, "ok"] : dT < 0 ? [`${plural(-dT, "terminal")} fewer`, "warn"] : null
+  ].filter(Boolean).map(([t, tone]) => `<span class="tag ${tone}">${t}</span>`).join("");
+  const dl = (r, set, terms, diff) => `<dl>
+      <div><dt>Stops</dt><dd>${set.length}${diff ? diffText(dS, "stop", v => v) : ""}</dd></div>
+      <div><dt>Terminals</dt><dd>${terms}${g.want ? ` of ${g.want}` : ""}${diff ? upDiff(dT) : ""}</dd></div>
+      <div><dt>Distance</dt><dd>${kmText(r.km)}${diff ? diffText(dKm, "km", v => v.toFixed(1)) : ""}</dd></div>
+      <div><dt>Time</dt><dd>${fmtMin(r.min)}${diff ? diffText(dMin, "min", fmtMin) : ""}</dd></div></dl>`;
+  const show = (key, on) => `<button type="button" class="btn ghost sm" data-focus="${key}" aria-pressed="${on}">${on ? "Showing route" : "Show route"}</button>`;
+  return `<div class="vs">
+    <div class="opt-card${onSug ? "" : " on"}">
+      <div class="oh">Your pick</div><div class="osub">In the best order</div>
+      <div class="obadges"></div>
+      ${dl(mineRoute, chosen, mineTerms, false)}
+      <div class="oact">${show("mine", !onSug)}<button type="button" class="btn ghost" id="keepMine">Keep my route</button></div>
+    </div>
+    <div class="opt-card rec${onSug ? " on" : ""}">
+      <div class="oh">${name}</div><div class="osub">${sug.steps.length === 1 ? "1 change" : `${sug.steps.length} changes`}, in the best order</div>
+      <div class="obadges">${badges}</div>
+      ${dl(sug.route, sug.set, sugTerms, true)}
+      <div class="oact">${show("suggested", onSug)}<button type="button" class="btn" id="useSug">Use ${name.toLowerCase()}</button></div>
+    </div>
+  </div>
+  <div class="sub" style="margin-top:6px">Time includes ${CFG.serviceMin} min at each stop. You choose: nothing changes until you tap one of the two buttons.</div>`;
+}
+
+function renderChoose(pool) {
+  const o = origin(), g = goal(pool);
+  const order = [...pool].sort((a, b) => net.km(o.node, a.stop.node) - net.km(o.node, b.stop.node));
+  const chosen = chosenStops(pool), sug = advise(chosen, pool);
+  const mineRoute = route(chosen), mineTerms = termSum(chosen), sig = chooseSig();
+  $("s3title").textContent = "Choose your stops";
+  const better = !!(sug && sug.steps.length), declined = better && kept === sig, showSug = better && !declined;
+  if (!showSug && st.focus === "suggested") st.focus = "mine";
+  const onSug = showSug && st.focus === "suggested";
+  const showRoute = onSug ? sug.route : mineRoute;
+  let cmp = "";
+  if (mineRoute) {
+    const sugTerms = sug ? termSum(sug.set) : 0, below = g.active && mineTerms < g.want;
+    const title = g.active && g.short ? `${plural(st.n, "stop")} can't reach ${plural(g.want, "terminal")}`
+      : below ? `Your pick reaches ${mineTerms} of ${g.want} terminals` : null;
+    const why = g.active && g.short
+      ? `The most ${plural(st.n, "stop")} can give is ${plural(g.maxN, "terminal")}, and ${g.want} takes at least ${plural(g.needK, "stop")}. ${g.big ? `That's more than the ${MAX_STOPS} we can plan, so here is the closest we can get. Try a lower target.` : `Recommended: ${plural(sug?.set.length ?? 0, "stop")} for ${plural(sugTerms, "terminal")}.`}`
+      : below ? `A different set of stops would ${sugTerms >= g.want ? "get you there" : `get you closer (${sugTerms})`}.` : "";
+    const stepText = s => {
+      const nm = x => `<b>${esc(x.merchants[0])}</b> <span class="ids">${idList(termsOf(pool, x))}</span>`;
+      const km = s.delta === undefined ? "" : s.delta < 0 ? `saves ${(-s.delta).toFixed(1)} km` : `+${s.delta.toFixed(1)} km`;
+      const dT = s.type === "swap" ? tcOf(s.in) - tcOf(s.out) : s.type === "add" ? tcOf(s.stop) : -tcOf(s.stop);
+      const tm = g.want ? `${dT >= 0 ? "+" : "−"}${plural(Math.abs(dT), "terminal")}` : "";
+      const tail = [km, tm].filter(Boolean).join(", ");
+      const head = s.type === "swap" ? `Swap ${nm(s.out)} for ${nm(s.in)}`
+        : s.type === "drop" ? `Drop ${nm(s.stop)}${g.active ? "" : ` to keep to ${plural(st.n, "stop")}`}`
+        : `Add ${nm(s.stop)}${g.active ? "" : ` to reach ${plural(st.n, "stop")}`}`;
+      return `<li>${head}${tail ? ` — ${tail}` : ""}</li>`;
+    };
+    cmp = `
     <div class="cmp">
-      ${better ? `<div class="seg" role="group" aria-label="Which route to preview">
-        <button type="button" data-focus="mine" aria-pressed="${!onSug}">Your pick</button>
-        <button type="button" data-focus="suggested" aria-pressed="${onSug}">Suggested</button>
-      </div>` : ""}
-      ${better ? `
-      <div class="sug">
-        <h3>We'd suggest ${sug.steps.length === 1 ? "one change" : plural(sug.steps.length, "change")}</h3>
-        <ul>${sug.steps.map(s => {
-          const nm = x => `<b>${esc(x.merchants[0])}</b> <span class="ids">${idList(termsOf(pool, x))}</span>`;
-          const save_ = s.delta < 0 ? `saves ${(-s.delta).toFixed(1)} km` : `+${s.delta.toFixed(1)} km`;
-          return s.type === "swap" ? `<li>Swap ${nm(s.out)} for ${nm(s.in)} — ${save_}</li>`
-            : s.type === "drop" ? `<li>Drop ${nm(s.stop)} to keep to ${plural(st.n, "stop")} — ${save_}</li>`
-            : `<li>Add ${nm(s.stop)} to reach ${plural(st.n, "stop")} — ${save_}</li>`;
-        }).join("")}</ul>
-        <div class="stats" style="margin-bottom:8px">
-          <div class="stat"><b>${plural(sug.set.length, "stop")}</b><span>suggested</span></div>
-          <div class="stat"><b>${kmText(sug.route.km)}${diffText(sug.route.km - mineRoute.km, "km", v => v.toFixed(1))}</b><span>distance</span></div>
-          <div class="stat"><b>${fmtMin(sug.route.min)}${diffText(sug.route.min - mineRoute.min, "min", fmtMin)}</b><span>time</span></div>
-        </div>
-        <button type="button" class="btn" id="useSug">Use the suggested route</button>
-      </div>`
-      : `<div class="good-note">${chosen.length === st.n ? "Your pick is already the quickest set we can find." : "No change would make this route shorter."}</div>`}
+      ${showSug ? `
+      <div class="sug ${title ? "advise" : ""}">
+        <h3>${title ?? `We'd suggest ${sug.steps.length === 1 ? "one change" : plural(sug.steps.length, "change")}`}</h3>
+        ${why ? `<p>${why}</p>` : ""}
+        <p><b>${verdictText(chosen, sug, mineRoute)}</b></p>
+        <ul>${sug.steps.map(stepText).join("")}</ul>
+      </div>
+      ${compareCards(chosen, sug, mineRoute, g, onSug)}`
+      : declined ? `<div class="good-note neutral">Keeping your route${g.want ? ` (${mineTerms} of ${g.want} terminals)` : ""}. <button type="button" class="btn link" id="showSug">Show the ${g.active ? "recommendation" : "suggestion"} again</button></div>`
+      : `<div class="good-note">${g.active
+          ? (mineTerms >= g.want ? `Your pick hits your ${g.want}-terminal target ${st.opt === "terminals" ? "with the fewest stops we can find" : "on the shortest route we can find"}.`
+            : `That's the most terminals we can get from ${plural(st.n, "stop")}: ${mineTerms} of ${g.want}.`)
+          : chosen.length === st.n ? "Your pick is already the quickest set we can find." : "No change would make this route shorter."}</div>`}
       ${prevChosen ? '<div style="margin-top:8px"><button type="button" class="btn link" id="undoSug">← Back to my original pick</button></div>' : ""}
     </div>`;
+  }
 
   const keepScroll = $("s3body").querySelector(".pick")?.scrollTop ?? 0;  // ticking a box redraws the list: keep place and focus
   const keepFocus = document.activeElement?.dataset?.pick;
   $("s3body").innerHTML = `
-    <div class="pick-head"><span>My stops <span class="count ${chosen.length === st.n ? "ok" : ""}">${chosen.length} of ${st.n} chosen</span></span>
+    <div class="pick-head"><span>My stops <span class="count ${g.want ? (mineTerms >= g.want ? "ok" : "") : chosen.length === st.n ? "ok" : ""}">${chosen.length} of ${st.n} chosen${g.want ? ` · ${mineTerms} of ${g.want} terminals` : ""}</span></span>
       <button class="btn link" type="button" id="pickNone">Clear</button></div>
     <div class="pick" role="group" aria-label="My stops">${order.map(p => `
       <label><input type="checkbox" data-pick="${esc(p.stop.id)}" ${chosen.includes(p.stop) ? "checked" : ""}>
@@ -522,7 +778,8 @@ function renderChoose(pool) {
   if (pickBox) pickBox.scrollTop = keepScroll;
   if (keepFocus) $("s3body").querySelector(`[data-pick="${CSS.escape(keepFocus)}"]`)?.focus({ preventScroll: true });
   if (!showRoute) { view = null; clearMap(); return; }
-  view = { route: showRoute, ghost: onSug ? mineRoute : (better ? sug.route : null), color: onSug ? "#059669" : COLORS[0], pool, toggle: true };
+  view = { route: showRoute, ghost: onSug ? mineRoute : (showSug ? sug.route : null), color: onSug ? "#059669" : COLORS[0], pool, toggle: true,
+           label: showSug ? (onSug ? (g.active ? "recommended" : "suggested") : "your pick") : "" };
   renderDetail(showRoute, pool);
   drawMap();
 }
@@ -530,10 +787,11 @@ function renderChoose(pool) {
 function renderDetail(r0, pool) {
   const o = origin(), r = gRoutes.get(keyOf(r0.visits.map(v => v.stop), o)) ?? r0, real = !!r.path;
   view.route = r;
-  const parts = googleRouteParts(o, r.visits, r.closed);
+  const parts = googleRouteParts(o, r.visits, r.closed), g = goal(pool), terms = termSum(r.visits.map(v => v.stop));
   $("detail").innerHTML = `
-    <div class="stats" style="margin-top:12px">
+    <div class="stats four" style="margin-top:12px">
       <div class="stat"><b>${plural(r.visits.length, "stop")}</b><span>to do</span></div>
+      <div class="stat"><b>${terms}${g.want ? ` of ${g.want}` : ""}</b><span>terminals</span></div>
       <div class="stat"><b>${kmText(r.km)}</b><span>${real ? "by road" : "estimated"}</span></div>
       <div class="stat"><b>${fmtMin(r.min)}</b><span>incl. ${CFG.serviceMin} min a stop</span></div>
     </div>
@@ -552,7 +810,7 @@ function renderDetail(r0, pool) {
       </div>
       <div class="status" id="gstatus">${real ? "Showing real driving distance and the road path." : "Distances are estimates until you check with Google roads. If Google Maps can't find an address, try Bing Maps."}</div>
     </div>
-    <h3 class="listh">Stops in order</h3>
+    <h3 class="listh">Stops in order${view.label ? ` · ${view.label}` : ""}</h3>
     <ul class="stops">
       <li class="startrow" style="display:block">${st.start === "here" && here ? "Start: your location" : "Start: New Kingston depot"}${r.closed ? ", finish back there" : ""}</li>
       ${r.visits.map(v => { const s = v.stop; return `<li>
@@ -725,7 +983,7 @@ async function refine() {
 
 async function copyList() {
   const r = view.route, o = origin(), pool = myStops();
-  const text = [`My route (${plural(r.visits.length, "stop")}, ${kmText(r.km)}, ${fmtMin(r.min)})`, `Start: ${st.start === "here" && here ? "my location" : "New Kingston depot"}`,
+  const text = [`My route (${plural(r.visits.length, "stop")}, ${plural(termSum(r.visits.map(v => v.stop)), "terminal")}, ${kmText(r.km)}, ${fmtMin(r.min)})`, `Start: ${st.start === "here" && here ? "my location" : "New Kingston depot"}`,
     ...r.visits.map(v => `${v.seq}. ${v.stop.merchants.join(" · ")}, ${v.stop.address}, ${v.stop.parish} (${termsOf(pool, v.stop).map(t => t.id).join(", ")})`)].join("\n");
   try { await navigator.clipboard.writeText(text); toast("Route copied"); }
   catch {
@@ -751,6 +1009,13 @@ function setN(v) {
   st.n = v; st.day = 0; prevChosen = null; save(); rerender();
 }
 
+function setT(v) {
+  v = Math.max(0, Math.min(500, Math.round(Number(v)) || 0));
+  if (v === st.t) { $("t").value = st.t || ""; return; }
+  st.t = v; st.day = 0; prevChosen = null; save(); rerender();
+}
+function setOpt(v) { st.opt = v; st.day = 0; prevChosen = null; save(); rerender(); }
+
 document.addEventListener("click", e => {
   const t = e.target;
   const rm = t.closest("[data-rm]"), day = t.closest("[data-day]"), focus = t.closest("[data-focus]"), show = t.closest("[data-showmap]");
@@ -759,10 +1024,16 @@ document.addEventListener("click", e => {
   else if (focus) { st.focus = focus.dataset.focus; fitNext = true; renderChoose(myStops()); }
   else if (show) setView("map");
   else if (t.closest("#useSug")) {
-    const pool = myStops(), s = suggest(chosenStops(pool), pool);
-    prevChosen = [...st.chosen]; setChosen(s.set); st.focus = "mine"; toast("Using the suggested route"); rerender();
+    const pool = myStops(), s = advise(chosenStops(pool), pool);
+    prevChosen = { chosen: [...st.chosen], n: st.n }; setChosen(s.set);
+    if (s.set.length > st.n) st.n = s.set.length;  // the recommendation needed more stops than planned
+    st.focus = "mine"; save(); toast("Using the recommended route"); rerender();
   }
-  else if (t.closest("#undoSug")) { st.chosen = prevChosen; prevChosen = null; st.focus = "mine"; save(); rerender(); }
+  else if (t.closest("#keepMine")) { kept = chooseSig(); st.focus = "mine"; toast("Keeping your route"); fitNext = true; renderChoose(myStops()); }
+  else if (t.closest("#showSug")) { kept = ""; renderChoose(myStops()); }
+  else if (t.closest("#undoSug")) { st.chosen = prevChosen.chosen; st.n = prevChosen.n; prevChosen = null; st.focus = "mine"; save(); rerender(); }
+  else if (t.closest("#useK")) { st.n = +t.closest("#useK").dataset.k; st.day = 0; save(); toast(`Planning ${plural(st.n, "stop")} a day`); rerender(); }
+  else if (t.closest("#keepN")) { keptAuto = autoSig(); renderAuto(myStops()); }
   else if (t.closest("#pickNone")) { st.chosen = []; prevChosen = null; save(); rerender(); }
   else if (t.closest("#refine")) refine();
   else if (t.closest("#copy")) copyList();
@@ -779,6 +1050,10 @@ $("clearAll").onclick = () => { st.ids = []; st.chosen = []; prevChosen = null; 
 $("nMinus").onclick = () => setN(st.n - 1);
 $("nPlus").onclick = () => setN(st.n + 1);
 $("n").onchange = e => setN(e.target.value);
+$("tMinus").onclick = () => setT(st.t - 1);
+$("tPlus").onclick = () => setT(st.t + 1);
+$("t").onchange = e => setT(e.target.value);
+document.querySelectorAll("#optSeg button").forEach(b => b.onclick = () => setOpt(b.dataset.opt));
 $("loop").onchange = e => { st.loop = e.target.checked; save(); rerender(); };
 document.querySelectorAll("#startSeg button").forEach(b => b.onclick = () => setStart(b.dataset.start));
 document.querySelectorAll("#modeSeg button").forEach(b => b.onclick = () => { st.mode = b.dataset.mode; prevChosen = null; save(); rerender(); });
