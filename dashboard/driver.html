@@ -541,7 +541,10 @@ function renderDetail(r0, pool) {
       <h3>Take this route with you</h3>
       <div class="links">${parts.map(p => `
         <a class="btn" href="${p.url}" target="_blank" rel="noopener">Google Maps · ${esc(p.label)}</a>
-        <a class="btn ghost" href="${p.bing}" target="_blank" rel="noopener">Bing Maps · ${esc(p.label)}</a>`).join("")}</div>
+        <a class="btn ghost" href="${p.bing}" target="_blank" rel="noopener">Bing Maps · ${esc(p.label)}</a>`).join("")}
+        <a class="btn ghost" href="${nav.waze(r.visits[0].stop)}" target="_blank" rel="noopener">Waze · start with stop 1</a>
+        <a class="btn ghost" href="${nav.apple(r.visits[0].stop)}" target="_blank" rel="noopener">Apple Maps · start with stop 1</a></div>
+      <div class="sub">Waze and Apple Maps take one stop at a time, so those two open stop 1. Use the buttons on each stop below for the rest, in order.</div>
       <div class="links">
         <button type="button" class="btn ghost sm" id="copy">Copy list</button>
         <button type="button" class="btn ghost sm mapbtn" data-showmap>See on map</button>
