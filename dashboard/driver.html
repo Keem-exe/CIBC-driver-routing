@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>try { var t = JSON.parse(localStorage.getItem("theme")); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<title>My Day · Driver Routes</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #16181d; --muted: #5d6573; --line: #e3e6eb;
+    --chip: #eef1f5; --warn: #b45309; --danger: #b91c1c; --accent: #2563eb; --ok: #047857; --okbg: #ecfdf5;
+  }
+  :root { color-scheme: light; }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1115; --panel: #171a21; --text: #e8eaee; --muted: #9aa3b2; --line: #2a2f3a;
+    --chip: #222733; --warn: #f59e0b; --danger: #f87171; --accent: #60a5fa; --ok: #34d399; --okbg: #12261f;
+  }
+  :root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0f1115; --panel: #171a21; --text: #e8eaee; --muted: #9aa3b2; --line: #2a2f3a;
+      --chip: #222733; --warn: #f59e0b; --danger: #f87171; --accent: #60a5fa; --ok: #34d399; --okbg: #12261f;
+    }
+    :root:not([data-theme="light"]) .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9); }
+  }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--panel); color: var(--text); }
+  .leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input, textarea { font: inherit; color: inherit; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .app { display: grid; grid-template-columns: 440px 1fr; height: 100vh; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; }
+  #map { height: 100vh; }
+  header { padding: 16px 20px 10px; border-bottom: 1px solid var(--line); }
+  .top { display: flex; align-items: center; gap: 8px; }
+  h1 { margin: 0; font-size: 20px; flex: 1; }
+  .meta, .sub { color: var(--muted); font-size: 12px; }
+  .meta { margin: 4px 0 0; }
+
+  .btn { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn.ghost { background: none; color: var(--accent); border: 1px solid var(--line); }
+  .btn.ghost:hover { background: var(--chip); }
+  .btn.sm { padding: 4px 10px; min-height: 30px; font-size: 12px; }
+  .btn.link { background: none; color: var(--accent); padding: 0 2px; min-height: 0; font-weight: 600; }
+
+  .card { padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .card h2 { margin: 0 0 4px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; display: inline-grid; place-items: center; flex: none; }
+  .lead { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+
+  .addrow { display: flex; gap: 8px; }
+  .addrow textarea { flex: 1; resize: none; max-height: 140px; line-height: 1.35; min-width: 0; background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: 15px; }
+  .addrow textarea:focus { outline: none; border-color: var(--accent); }
+  .msg { min-height: 18px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+  .msg.bad { color: var(--danger); }
+  .msg.good { color: var(--ok); }
+  .results { margin-top: 6px; display: grid; gap: 4px; }
+  .results button { text-align: left; background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+  .results button:hover { border-color: var(--accent); }
+
+  .mine-head { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 6px; font-weight: 600; font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  #mine { max-height: 112px; overflow-y: auto; padding: 2px; }
+  .chip { background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 4px 6px 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
+  .chip code { font-size: 11px; opacity: .75; }
+  .chip button { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 14px; line-height: 1; padding: 4px 6px; border-radius: 999px; }
+  .chip button:hover { color: var(--danger); }
+
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 0 0; }
+  .label { font-size: 12px; font-weight: 600; color: var(--muted); margin: 14px 0 6px; display: block; }
+  .stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .stepper button { width: 42px; height: 42px; border: 0; background: var(--chip); font-size: 20px; cursor: pointer; }
+  .stepper input { width: 56px; height: 42px; text-align: center; border: 0; background: var(--panel); font-size: 20px; font-weight: 700; -moz-appearance: textfield; }
+  .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; background: var(--chip); border-radius: 10px; padding: 3px; }
+  .seg button { border: 0; background: none; border-radius: 8px; padding: 9px 8px; font-weight: 600; color: var(--muted); cursor: pointer; min-height: 40px; }
+  .seg button[aria-pressed="true"] { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+  .check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; }
+  .check input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+  .empty { padding: 18px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; font-size: 13px; }
+
+  .days { display: grid; gap: 8px; margin-top: 8px; }
+  .day { text-align: left; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+  .day:hover { border-color: var(--accent); }
+  .day[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .day .t { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; }
+  .day .t span { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .day .names { margin-top: 4px; font-size: 12px; color: var(--muted); }
+  .tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 0 6px; border-radius: 4px; border: 1px solid currentColor; margin-left: 6px; vertical-align: middle; }
+  .tag.ok { color: var(--ok); }
+
+  .pick { display: grid; gap: 2px; max-height: 340px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
+  .pick label { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 10px 12px; cursor: pointer; align-items: start; }
+  .pick label + label { border-top: 1px solid var(--line); }
+  .pick label:hover { background: var(--chip); }
+  .pick input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); }
+  .pick .n { font-weight: 600; font-size: 13px; }
+  .pick .a { color: var(--muted); font-size: 12px; }
+  .pick-head { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 6px; font-weight: 600; font-size: 13px; }
+  .pick-head .count.ok { color: var(--ok); }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { background: var(--chip); border-radius: 8px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stat span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .stat em { font-style: normal; font-size: 11px; font-weight: 600; margin-left: 4px; }
+  .better { color: var(--ok); }
+  .worse { color: var(--danger); }
+
+  .cmp { margin: 12px 0; }
+  .sug { margin-top: 10px; border: 1px solid var(--ok); background: var(--okbg); border-radius: 10px; padding: 10px 12px; }
+  .sug h3 { margin: 0 0 6px; font-size: 13px; color: var(--ok); }
+  .sug ul { margin: 0 0 8px; padding-left: 18px; font-size: 13px; }
+  .sug li { margin: 3px 0; }
+  .sug .ids, .stops .ids { font-size: 11px; color: var(--muted); }
+  .good-note { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--okbg); color: var(--ok); font-size: 13px; font-weight: 600; }
+
+  .go { margin: 14px 0; display: grid; gap: 8px; }
+  .go h3, .listh { margin: 0; font-size: 13px; }
+  .go .links { display: flex; flex-wrap: wrap; gap: 6px; }
+  .status { font-size: 12px; color: var(--muted); min-height: 16px; }
+
+  .stops { list-style: none; margin: 8px 0 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .stops li { display: grid; grid-template-columns: 28px 1fr auto; gap: 4px 10px; padding: 10px 12px; }
+  .stops li + li { border-top: 1px solid var(--line); }
+  .seq { width: 24px; height: 24px; border-radius: 50%; color: #fff; font: 700 12px/24px system-ui; text-align: center; background: var(--accent); }
+  .stops .addr { font-weight: 600; font-size: 13px; }
+  .stops .eta { text-align: right; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .nav { grid-column: 2 / 4; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .nav a { border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; text-decoration: none; font-size: 12px; font-weight: 600; min-height: 32px; display: inline-flex; align-items: center; }
+  .nav a.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .startrow { padding: 8px 12px; font-size: 12px; color: var(--muted); background: var(--chip); }
+
+  .pin { width: 24px; height: 24px; border-radius: 50%; color: #fff; font: 700 11px/24px system-ui; text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  .depot { width: 30px; height: 30px; border-radius: 6px; background: #16181d; color: #fff; font: 700 13px/30px system-ui; text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  .popup { min-width: 170px; }
+  .popup .pickbtn { margin-top: 6px; font-size: 12px; color: var(--accent); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #16181d; color: #fff; padding: 9px 16px; border-radius: 999px; font-size: 13px; z-index: 3000; max-width: 90vw; }
+  .toast[hidden] { display: none; }
+  #tabbar { display: none; }
+  .mapbtn { display: none; }
+
+  @media (max-width: 800px) {
+    .app { display: block; height: auto; }
+    aside { border-right: 0; overflow: visible; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+    #map { display: none; height: calc(100dvh - 60px - env(safe-area-inset-bottom)); }
+    body[data-view="map"] aside { display: none; }
+    body[data-view="map"] #map { display: block; }
+    header, .card { padding-left: 16px; padding-right: 16px; }
+    #tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 2000; background: var(--panel); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+    #tabbar button { flex: 1; border: 0; background: none; padding: 12px 6px; font-weight: 600; color: var(--muted); min-height: 56px; cursor: pointer; }
+    #tabbar button[aria-selected="true"] { color: var(--accent); box-shadow: inset 0 3px 0 var(--accent); }
+    .mapbtn { display: inline-flex; }
+    .toast { bottom: 80px; }
+  }
+</style>
+</head>
+<body data-view="plan">
+<div class="app">
+  <aside>
+    <header>
+      <div class="top">
+        <h1>My day</h1>
+        <a class="btn ghost sm" href="./" title="The scheduler's view: plan every driver at once">Scheduler view</a>
+        <button class="btn ghost sm" id="themeBtn" type="button" aria-label="Colour theme"></button>
+      </div>
+      <p class="meta" id="meta">Loading terminals…</p>
+    </header>
+
+    <section class="card" id="s1">
+      <h2><span class="num">1</span>My terminals</h2>
+      <p class="lead">Paste every terminal ID you have to deliver. Separate them with spaces, commas or new lines.</p>
+      <form class="addrow" id="addForm" autocomplete="off">
+        <label class="sr" for="add">Terminal IDs, or a business name to search</label>
+        <textarea id="add" rows="2" inputmode="text" placeholder="Paste your terminal IDs here, or type a business name to search" enterkeyhint="done"></textarea>
+        <button class="btn" type="submit">Add</button>
+      </form>
+      <div class="msg" id="addMsg" role="status" aria-live="polite"></div>
+      <div class="results" id="results"></div>
+      <div id="mineBox" hidden>
+        <div class="mine-head"><span id="mineCount"></span><button class="btn link" id="clearAll" type="button">Remove all</button></div>
+        <div class="chips" id="mine"></div>
+      </div>
+    </section>
+
+    <section class="card" id="s2" hidden>
+      <h2><span class="num">2</span>Plan my day</h2>
+      <span class="label" id="nLabel">How many stops today?</span>
+      <div class="stepper" role="group" aria-labelledby="nLabel">
+        <button type="button" id="nMinus" aria-label="One fewer stop">−</button>
+        <input id="n" type="number" min="1" max="24" inputmode="numeric" aria-label="Stops today">
+        <button type="button" id="nPlus" aria-label="One more stop">+</button>
+      </div>
+      <span class="label">Where do you start?</span>
+      <div class="seg" id="startSeg" role="group" aria-label="Start point">
+        <button type="button" data-start="depot">Depot (New Kingston)</button>
+        <button type="button" data-start="here">My location</button>
+      </div>
+      <div class="sub" id="startNote" style="margin-top:6px"></div>
+      <div class="row"><label class="check"><input type="checkbox" id="loop"> Finish back at the start</label></div>
+      <span class="label">How should we build your day?</span>
+      <div class="seg" id="modeSeg" role="group" aria-label="Planning mode">
+        <button type="button" data-mode="auto">Pick my best days</button>
+        <button type="button" data-mode="choose">I'll choose my stops</button>
+      </div>
+      <div class="sub" id="modeNote" style="margin-top:6px"></div>
+    </section>
+
+    <section class="card" id="s3" hidden>
+      <h2><span class="num">3</span><span id="s3title">Your route</span></h2>
+      <div id="s3body"></div>
+    </section>
+  </aside>
+  <div id="map" aria-label="Map of your route"></div>
+</div>
+<nav id="tabbar" aria-label="Views">
+  <button type="button" data-v="plan" aria-selected="true">My day</button>
+  <button type="button" data-v="map" aria-selected="false">Map</button>
+</nav>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="routing.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const isMobile = matchMedia("(max-width: 800px)");
+const store = {
+  get(k, fallback) { try { return JSON.parse(localStorage.getItem(k)) ?? fallback; } catch { return fallback; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+// ---------------------------------------------------------------------------
+// State. Only terminal IDs, the target and a few choices are saved (stop ids change when the data is rebuilt).
+// ---------------------------------------------------------------------------
+const DEPOT = [18.0075, -76.785];  // New Kingston, same as the scheduler page
+const CFG = { speed: 35, serviceMin: 15 };
+const MAX_STOPS = 24;  // Google Maps and Google's road lookup both stop being useful beyond this
+let st = { ids: [], n: 5, mode: "auto", start: "depot", loop: false, chosen: [], day: 0, focus: "mine", ...store.get("driverState", {}) };
+const save = () => store.set("driverState", st);
+let data = null, net = null, byId = {}, byTerminal = new Map(), here = null, prevChosen = null;
+const gRoutes = new Map();  // routeKey -> route refined with Google road data
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2800);
+}
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
+// ---------------------------------------------------------------------------
+// Derived data
+// ---------------------------------------------------------------------------
+function origin() {
+  const p = st.start === "here" && here ? here : DEPOT;
+  return { p, show: p, text: `${p[0]},${p[1]}`, node: net.node(p) };
+}
+/** My stops (one entry per location) with only my own terminals at each. */
+function myStops() {
+  const out = new Map();
+  for (const id of st.ids) {
+    const s = byTerminal.get(id);
+    if (!s) continue;
+    if (!out.has(s.id)) out.set(s.id, { stop: s, terms: [] });
+    out.get(s.id).terms.push(s.terminals.find(t => t.id === id));
+  }
+  return [...out.values()];
+}
+const termsOf = (pool, stop) => pool.find(p => p.stop.id === stop.id)?.terms ?? [];
+const idList = terms => terms.map(t => `<code>${esc(t.id)}</code>`).join(" ");
+
+const rcache = new Map();
+const keyOf = (stops, o) => [o.p.join(), st.loop, stops.map(s => s.id).sort().join()].join("|");
+/** Best order for these stops from the start (exact for small sets), cached. */
+function route(stops) {
+  if (!stops.length) return null;
+  const o = origin(), key = keyOf(stops, o);
+  if (!rcache.has(key)) rcache.set(key, plan(stops, o.p, 1, CFG, net, { closed: st.loop })[0]);
+  return rcache.get(key);
+}
+
+// ---------------------------------------------------------------------------
+// "Pick my best days": split my stops into groups of N that sit close together.
+// ---------------------------------------------------------------------------
+function makeDays(stops, N) {
+  const o = net.node(origin().p), d = (a, b) => net.km(a.node, b.node);
+  const grow = first => {  // seed -> add the stop nearest the group, N times; next seed is the one farthest from the start
+    const left = new Set(stops), days = [];
+    while (left.size) {
+      let seed = first && !days.length ? first : null;
+      if (!seed) { let far = -1; for (const s of left) { const k = net.km(o, s.node); if (k > far) { far = k; seed = s; } } }
+      const grp = [seed]; left.delete(seed);
+      while (grp.length < N && left.size) {
+        let best = null, bd = Infinity;
+        for (const s of left) { let k = Infinity; for (const g of grp) k = Math.min(k, d(g, s)); if (k < bd) { bd = k; best = s; } }
+        grp.push(best); left.delete(best);
+      }
+      days.push(grp);
+    }
+    return days;
+  };
+  // Several starting points, keep the split with the least driving overall.
+  const seeds = [null, ...[...stops].sort((a, b) => net.km(o, b.node) - net.km(o, a.node)).slice(0, 9)];
+  let best = null, bestKm = Infinity;
+  for (const first of seeds) {
+    const days = grow(first), km = days.reduce((a, g) => a + route(g).km, 0);
+    if (km < bestKm - 1e-6) { bestKm = km; best = days; }
+  }
+  return best.map(g => ({ stops: g, route: route(g) })).sort((a, b) => a.route.km / a.stops.length - b.route.km / b.stops.length);
+}
+
+// ---------------------------------------------------------------------------
+// "I'll choose": keep their picks, but suggest drops/adds/swaps that shorten the route.
+// ---------------------------------------------------------------------------
+const tourNodes = (r, o) => [o.node, ...r.visits.map(v => v.stop.node), ...(st.loop ? [o.node] : [])];
+function insertCost(nodes, sn) {
+  let best = Infinity;
+  for (let e = 0; e < nodes.length - 1; e++) best = Math.min(best, net.km(nodes[e], sn) + net.km(sn, nodes[e + 1]) - net.km(nodes[e], nodes[e + 1]));
+  if (!st.loop) best = Math.min(best, net.km(nodes[nodes.length - 1], sn));
+  return best;
+}
+function removeGain(nodes, i) {
+  const prev = nodes[i - 1], sn = nodes[i], next = nodes[i + 1];
+  return net.km(prev, sn) + (next ? net.km(sn, next) - net.km(prev, next) : 0);
+}
+function suggest(chosen, pool) {
+  if (!chosen.length) return null;
+  const o = origin(), N = st.n, all = pool.map(p => p.stop);
+  let set = [...chosen], steps = [];
+  const km = a => a.length ? route(a).km : 0;
+  let cur = km(set);
+  const outside = () => all.filter(s => !set.includes(s));
+  const apply = (next, step) => { const k = km(next); steps.push({ ...step, delta: k - cur }); set = next; cur = k; };
+
+  while (set.length > N) {  // you planned N stops: which are the least worth keeping?
+    let best = null;
+    for (const s of set) { const rest = set.filter(x => x !== s), k = km(rest); if (!best || k < best.k) best = { s, rest, k }; }
+    apply(best.rest, { type: "drop", stop: best.s });
+  }
+  while (set.length < N && outside().length) {  // room for more: the cheapest stops to add
+    const nodes = tourNodes(route(set), o);
+    const cands = outside().map(u => ({ u, est: insertCost(nodes, u.node) })).sort((a, b) => a.est - b.est).slice(0, 8);
+    let best = null;
+    for (const c of cands) { const next = [...set, c.u], k = km(next); if (!best || k < best.k) best = { u: c.u, next, k }; }
+    apply(best.next, { type: "add", stop: best.u });
+  }
+  for (let i = 0; i < 3; i++) {  // swaps: shortlist by estimate, confirm by re-planning
+    const r = route(set), nodes = tourNodes(r, o), out = outside();
+    if (!out.length) break;
+    const cands = [];
+    r.visits.forEach((v, idx) => {
+      const gain = removeGain(nodes, idx + 1), rest = nodes.filter((_, j) => j !== idx + 1);
+      for (const u of out) cands.push({ out: v.stop, in: u, est: gain - insertCost(rest, u.node) });
+    });
+    cands.sort((a, b) => b.est - a.est);
+    let best = null;
+    for (const c of cands.slice(0, 10)) {
+      const next = set.filter(x => x !== c.out).concat(c.in), k = km(next);
+      if (k < cur - 0.5 && (!best || k < best.k)) best = { c, next, k };
+    }
+    if (!best) break;
+    apply(best.next, { type: "swap", out: best.c.out, in: best.c.in });
+  }
+  return { set, steps, route: route(set) };
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+const chosenStops = pool => {
+  const want = new Set(st.chosen.map(id => byTerminal.get(id)?.id));
+  return pool.filter(p => want.has(p.stop.id)).map(p => p.stop);
+};
+const setChosen = stops => { st.chosen = stops.map(s => termsOf(myStops(), s)[0]?.id).filter(Boolean); save(); };
+const kmText = k => `${k.toFixed(1)} km`;
+const diffText = (d, unit, fmt) => Math.abs(d) < 0.05 ? "" : `<em class="${d < 0 ? "better" : "worse"}">${d < 0 ? "−" : "+"}${fmt(Math.abs(d))}</em>`;
+
+function renderMine() {
+  const pool = myStops(), unknown = st.ids.filter(id => !byTerminal.has(id));
+  $("mineBox").hidden = !st.ids.length;
+  $("mineCount").textContent = `${plural(st.ids.length - unknown.length, "terminal")} at ${plural(pool.length, "location")}`;
+  $("mine").innerHTML = st.ids.map(id => {
+    const s = byTerminal.get(id);
+    return `<span class="chip"${s ? "" : ' style="border-color:var(--danger)"'}>${s ? esc(s.merchants[0].slice(0, 28)) : "Not found"} <code>${esc(id)}</code>
+      <button type="button" data-rm="${esc(id)}" aria-label="Remove ${esc(id)}">✕</button></span>`;
+  }).join("");
+}
+
+function renderPlan() {
+  const pool = myStops();
+  $("s2").hidden = !pool.length;
+  $("s3").hidden = !pool.length;
+  if (!pool.length) { clearMap(); return; }
+  $("n").value = st.n;
+  $("loop").checked = st.loop;
+  document.querySelectorAll("#startSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.start === st.start)));
+  document.querySelectorAll("#modeSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === st.mode)));
+  $("startNote").textContent = st.start === "here" ? (here ? "Using your current location. It stays on this device." : "Allow location access to use this.") : "Routes start at the New Kingston depot.";
+  $("modeNote").textContent = st.mode === "auto"
+    ? `We split your ${plural(pool.length, "stop")} into days of ${st.n} that sit close together.`
+    : `Tick the stops you want to do today. We find the best order and suggest changes if some would be quicker.`;
+  st.mode === "auto" ? renderAuto(pool) : renderChoose(pool);
+}
+
+let view = null;  // what the map and the route list are showing right now
+function renderAuto(pool) {
+  const stops = pool.map(p => p.stop);
+  $("s3title").textContent = "Your days";
+  const days = makeDays(stops, st.n);
+  st.day = Math.min(st.day, days.length - 1);
+  const short = days.findIndex(d => d.stops.length < st.n);  // the leftover day, wherever it sorts
+  $("s3body").innerHTML = `
+    <p class="lead">${days.length === 1 ? `You have ${plural(stops.length, "stop")}, so that's one day.` : `${plural(days.length, "day")}, quickest first. Tap a day to see its route.`}
+      ${days.length > 1 && short >= 0 ? `Day ${short + 1} has ${plural(days[short].stops.length, "stop")}, the rest of your list.` : ""}</p>
+    <div class="days">${days.map((d, i) => `
+      <button type="button" class="day" data-day="${i}" aria-pressed="${i === st.day}">
+        <div class="t"><div>Day ${i + 1}${i === 0 && days.length > 1 ? '<span class="tag ok">QUICKEST</span>' : ""}</div><span>${plural(d.stops.length, "stop")} · ${kmText(d.route.km)} · ${fmtMin(d.route.min)}</span></div>
+        <div class="names">${esc(d.stops.map(s => s.merchants[0]).join(" · "))}</div>
+      </button>`).join("")}</div>
+    <div id="detail"></div>`;
+  const cur = days[st.day];
+  view = { route: cur.route, ghost: null, color: COLORS[0], pool, toggle: false };
+  renderDetail(cur.route, pool);
+  drawMap();
+}
+
+function renderChoose(pool) {
+  const o = origin();
+  const order = [...pool].sort((a, b) => net.km(o.node, a.stop.node) - net.km(o.node, b.stop.node));
+  const chosen = chosenStops(pool), sug = suggest(chosen, pool);
+  const mineRoute = route(chosen);
+  $("s3title").textContent = "Choose your stops";
+  const better = sug && sug.steps.length;
+  if (!better && st.focus === "suggested") st.focus = "mine";
+  const onSug = better && st.focus === "suggested";
+  const showRoute = onSug ? sug.route : mineRoute;
+
+  const cmp = !mineRoute ? "" : `
+    <div class="cmp">
+      ${better ? `<div class="seg" role="group" aria-label="Which route to preview">
+        <button type="button" data-focus="mine" aria-pressed="${!onSug}">Your pick</button>
+        <button type="button" data-focus="suggested" aria-pressed="${onSug}">Suggested</button>
+      </div>` : ""}
+      ${better ? `
+      <div class="sug">
+        <h3>We'd suggest ${sug.steps.length === 1 ? "one change" : plural(sug.steps.length, "change")}</h3>
+        <ul>${sug.steps.map(s => {
+          const nm = x => `<b>${esc(x.merchants[0])}</b> <span class="ids">${idList(termsOf(pool, x))}</span>`;
+          const save_ = s.delta < 0 ? `saves ${(-s.delta).toFixed(1)} km` : `+${s.delta.toFixed(1)} km`;
+          return s.type === "swap" ? `<li>Swap ${nm(s.out)} for ${nm(s.in)} — ${save_}</li>`
+            : s.type === "drop" ? `<li>Drop ${nm(s.stop)} to keep to ${plural(st.n, "stop")} — ${save_}</li>`
+            : `<li>Add ${nm(s.stop)} to reach ${plural(st.n, "stop")} — ${save_}</li>`;
+        }).join("")}</ul>
+        <div class="stats" style="margin-bottom:8px">
+          <div class="stat"><b>${plural(sug.set.length, "stop")}</b><span>suggested</span></div>
+          <div class="stat"><b>${kmText(sug.route.km)}${diffText(sug.route.km - mineRoute.km, "km", v => v.toFixed(1))}</b><span>distance</span></div>
+          <div class="stat"><b>${fmtMin(sug.route.min)}${diffText(sug.route.min - mineRoute.min, "min", fmtMin)}</b><span>time</span></div>
+        </div>
+        <button type="button" class="btn" id="useSug">Use the suggested route</button>
+      </div>`
+      : `<div class="good-note">${chosen.length === st.n ? "Your pick is already the quickest set we can find." : "No change would make this route shorter."}</div>`}
+      ${prevChosen ? '<div style="margin-top:8px"><button type="button" class="btn link" id="undoSug">← Back to my original pick</button></div>' : ""}
+    </div>`;
+
+  const keepScroll = $("s3body").querySelector(".pick")?.scrollTop ?? 0;  // ticking a box redraws the list: keep place and focus
+  const keepFocus = document.activeElement?.dataset?.pick;
+  $("s3body").innerHTML = `
+    <div class="pick-head"><span>My stops <span class="count ${chosen.length === st.n ? "ok" : ""}">${chosen.length} of ${st.n} chosen</span></span>
+      <button class="btn link" type="button" id="pickNone">Clear</button></div>
+    <div class="pick" role="group" aria-label="My stops">${order.map(p => `
+      <label><input type="checkbox" data-pick="${esc(p.stop.id)}" ${chosen.includes(p.stop) ? "checked" : ""}>
+        <span><div class="n">${esc(p.stop.merchants[0])}</div>
+        <div class="a">${esc(p.stop.address)}, ${esc(p.stop.parish)} · ${idList(p.terms)}</div></span></label>`).join("")}</div>
+    ${chosen.length ? cmp : '<div class="empty" style="margin-top:12px">Tick the stops you plan to do today and your route appears here.</div>'}
+    <div id="detail"></div>`;
+  const pickBox = $("s3body").querySelector(".pick");
+  if (pickBox) pickBox.scrollTop = keepScroll;
+  if (keepFocus) $("s3body").querySelector(`[data-pick="${CSS.escape(keepFocus)}"]`)?.focus({ preventScroll: true });
+  if (!showRoute) { view = null; clearMap(); return; }
+  view = { route: showRoute, ghost: onSug ? mineRoute : (better ? sug.route : null), color: onSug ? "#059669" : COLORS[0], pool, toggle: true };
+  renderDetail(showRoute, pool);
+  drawMap();
+}
+
+function renderDetail(r0, pool) {
+  const o = origin(), r = gRoutes.get(keyOf(r0.visits.map(v => v.stop), o)) ?? r0, real = !!r.path;
+  view.route = r;
+  const parts = googleRouteParts(o, r.visits, r.closed);
+  $("detail").innerHTML = `
+    <div class="stats" style="margin-top:12px">
+      <div class="stat"><b>${plural(r.visits.length, "stop")}</b><span>to do</span></div>
+      <div class="stat"><b>${kmText(r.km)}</b><span>${real ? "by road" : "estimated"}</span></div>
+      <div class="stat"><b>${fmtMin(r.min)}</b><span>incl. ${CFG.serviceMin} min a stop</span></div>
+    </div>
+    <div class="go">
+      <h3>Take this route with you</h3>
+      <div class="links">${parts.map(p => `
+        <a class="btn" href="${p.url}" target="_blank" rel="noopener">Google Maps · ${esc(p.label)}</a>
+        <a class="btn ghost" href="${p.bing}" target="_blank" rel="noopener">Bing Maps · ${esc(p.label)}</a>`).join("")}</div>
+      <div class="links">
+        <button type="button" class="btn ghost sm" id="copy">Copy list</button>
+        <button type="button" class="btn ghost sm mapbtn" data-showmap>See on map</button>
+        <button type="button" class="btn ghost sm" id="refine" ${r.visits.length > MAX_STOPS ? "disabled" : ""}>${real ? "Re-check" : "Check"} with Google roads</button>
+      </div>
+      <div class="status" id="gstatus">${real ? "Showing real driving distance and the road path." : "Distances are estimates until you check with Google roads. If Google Maps can't find an address, try Bing Maps."}</div>
+    </div>
+    <h3 class="listh">Stops in order</h3>
+    <ul class="stops">
+      <li class="startrow" style="display:block">${st.start === "here" && here ? "Start: your location" : "Start: New Kingston depot"}${r.closed ? ", finish back there" : ""}</li>
+      ${r.visits.map(v => { const s = v.stop; return `<li>
+        <span class="seq" style="background:${view.color}">${v.seq}</span>
+        <span><div class="addr">${esc(s.merchants.join(" · "))}</div>
+          <div class="sub">${esc(s.address)}, ${esc(s.parish)}</div>
+          <div class="ids">${idList(termsOf(pool, s))}</div></span>
+        <span class="eta">+${fmtMin(v.eta)}<br>${v.legKm.toFixed(1)} km</span>
+        <div class="nav">
+          <a class="primary" href="${nav.google(s)}" target="_blank" rel="noopener">Google Maps</a>
+          <a href="${nav.waze(s)}" target="_blank" rel="noopener">Waze</a>
+          <a href="${nav.apple(s)}" target="_blank" rel="noopener">Apple Maps</a>
+          <a href="${nav.bing(s)}" target="_blank" rel="noopener">Bing Maps</a></div>
+      </li>`; }).join("")}
+    </ul>`;
+}
+
+// ---------------------------------------------------------------------------
+// Map
+// ---------------------------------------------------------------------------
+const JAMAICA = L.latLngBounds([17.55, -78.55], [18.65, -76.05]);
+const map = L.map("map", { maxBounds: JAMAICA.pad(0.15), maxBoundsViscosity: 1, minZoom: 8 }).fitBounds(JAMAICA);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap contributors" }).addTo(map);
+let layer = L.layerGroup().addTo(map), fitNext = true;
+function clearMap() { layer.clearLayers(); }
+const pathOf = (r, o) => r.path ? decodePolyline(r.path) : [o.show, ...r.visits.map(v => v.stop.show), ...(r.closed ? [o.show] : [])];
+
+function drawMap() {
+  layer.clearLayers();
+  if (!view) return;
+  const { route: r, ghost, color, pool, toggle } = view, o = origin(), bounds = [o.show];
+  const inRoute = new Set(r.visits.map(v => v.stop.id));
+  if (ghost) L.polyline(pathOf(ghost, o), { color: "#94a3b8", weight: 3, opacity: .8, dashArray: "2 8" }).addTo(layer);
+  L.polyline(pathOf(r, o), { color, weight: 4, opacity: .85, dashArray: r.path ? null : "8 8" }).addTo(layer);
+  L.marker(o.show, { zIndexOffset: 900, icon: L.divIcon({ className: "", html: `<div class="depot">${st.start === "here" && here ? "Me" : "D"}</div>`, iconSize: [30, 30] }) })
+    .bindTooltip(st.start === "here" && here ? "Your location" : "Depot").addTo(layer);
+  pool.forEach(p => {  // my other stops, as small grey dots (tap to add one in "I'll choose" mode)
+    if (inRoute.has(p.stop.id)) return;
+    bounds.push(p.stop.show);
+    const m = L.circleMarker(p.stop.show, { radius: 6, color: "#64748b", weight: 2, fillColor: "#cbd5e1", fillOpacity: .9 }).addTo(layer);
+    m.bindPopup(() => popupHtml(p, toggle, false));
+  });
+  r.visits.forEach(v => {
+    bounds.push(v.stop.show);
+    L.marker(v.stop.show, { icon: L.divIcon({ className: "", html: `<div class="pin" style="background:${color}">${v.seq}</div>`, iconSize: [24, 24] }) })
+      .bindPopup(() => popupHtml({ stop: v.stop, terms: termsOf(pool, v.stop) }, toggle, true, v)).addTo(layer);
+  });
+  if (fitNext && bounds.length > 1) { map.fitBounds(bounds, { padding: [30, 30] }); fitNext = false; }
+}
+function popupHtml(p, toggle, inRoute, v) {
+  const s = p.stop;
+  return `<div class="popup"><b>${esc(s.merchants.join(" · "))}</b><br>${esc(s.address)}, ${esc(s.parish)}<br>
+    <span class="ids">${idList(p.terms)}</span>${v ? `<br>Stop ${v.seq} · +${fmtMin(v.eta)}` : ""}
+    ${toggle ? `<br><button class="pickbtn" data-toggle="${esc(s.id)}">${inRoute ? "Remove from today" : "Add to today"}</button>` : ""}</div>`;
+}
+map.on("popupopen", e => {
+  const b = e.popup.getElement().querySelector("[data-toggle]");
+  if (b) b.onclick = () => { map.closePopup(); toggleStop(b.dataset.toggle); };
+});
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+function rerender(fit = true) { fitNext = fit; renderMine(); renderPlan(); }
+
+function toggleStop(stopId) {
+  const pool = myStops(), chosen = chosenStops(pool), s = byId[stopId];
+  prevChosen = null;
+  setChosen(chosen.includes(s) ? chosen.filter(x => x !== s) : [...chosen, s]);
+  rerender();
+}
+
+function addIds(text) {
+  const tokens = [...new Set(text.split(/[\s,;]+/).filter(Boolean))];
+  const looksLikeIds = tokens.length && tokens.every(t => /^\d+$/.test(t));
+  const msg = $("addMsg"), results = $("results");
+  results.innerHTML = "";
+  if (!looksLikeIds) return search(text);
+  const fresh = tokens.filter(t => !st.ids.includes(t)), found = fresh.filter(t => byTerminal.has(t)), missing = fresh.filter(t => !byTerminal.has(t));
+  st.ids = [...st.ids, ...found, ...missing]; save();
+  const dup = tokens.length - fresh.length;
+  msg.className = missing.length ? "msg bad" : "msg good";
+  msg.textContent = [found.length ? `Added ${plural(found.length, "terminal")}.` : "", dup ? `${plural(dup, "ID")} already in your list.` : "",
+    missing.length ? `Not found: ${missing.join(", ")}. Check the digits and remove them below.` : ""].filter(Boolean).join(" ");
+  if (!st.chosen.length && st.mode === "choose") st.chosen = [];
+  $("add").value = ""; grow();
+  rerender();
+  if (found.length) setTimeout(() => $("s2").scrollIntoView({ behavior: "smooth", block: "start" }), 150);  // on to the next step
+}
+function search(q) {
+  q = q.trim().toUpperCase();
+  const msg = $("addMsg"), box = $("results");
+  if (q.length < 2) { msg.className = "msg"; msg.textContent = ""; return; }
+  const hits = [];
+  for (const s of data.stops) {
+    if (s.merchants.some(m => m.includes(q)) || s.address.toUpperCase().includes(q))
+      for (const t of s.terminals) if (!st.ids.includes(t.id)) hits.push({ s, t });
+    if (hits.length >= 8) break;
+  }
+  msg.className = "msg";
+  msg.textContent = hits.length ? "Tap a terminal to add it:" : "No terminal matches that. Try the ID, or part of the business name.";
+  box.innerHTML = hits.map((h, i) => `<button type="button" data-hit="${i}"><b>${esc(h.s.merchants[0])}</b><br><span class="sub">${esc(h.t.id)} · ${esc(h.t.currency)} · ${esc(h.s.address)}, ${esc(h.s.parish)}</span></button>`).join("");
+  box.querySelectorAll("[data-hit]").forEach(b => b.onclick = () => {
+    st.ids.push(hits[+b.dataset.hit].t.id); save(); box.innerHTML = ""; msg.textContent = ""; $("add").value = ""; rerender();
+  });
+}
+
+async function refine() {
+  const r = view?.route; if (!r) return;
+  const o = origin(), btn = $("refine"), status = $("gstatus");
+  btn.disabled = true; status.textContent = "Asking Google…";
+  try {
+    const res = await fetch("/api/route", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      stopIds: r.visits.map(v => v.stop.id), start: { lat: o.p[0], lon: o.p[1] }, closed: r.closed, order: "best", path: true,
+      speedKmh: CFG.speed, serviceMin: CFG.serviceMin }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+    const sr = j.routes[0];
+    gRoutes.set(keyOf(r.visits.map(v => v.stop), o), { visits: sr.stops.map(s => ({ stop: byId[s.id], seq: s.seq, eta: s.etaMin, legKm: s.legKm })),
+      km: sr.km, min: sr.workMin, closed: sr.closed, path: sr.polyline, method: sr.orderedBy });
+    st.mode === "auto" ? renderAuto(myStops()) : renderChoose(myStops());
+    $("gstatus").textContent = `✓ Real road distances. ${j.usage ? `${j.usage.matrixElements}/${j.usage.matrixCap} lookups used today.` : ""}`;
+  } catch (e) {
+    status.textContent = `Google road data isn't available right now (${e.message}). The estimate above is still good for planning.`;
+    btn.disabled = false;
+  }
+}
+
+async function copyList() {
+  const r = view.route, o = origin(), pool = myStops();
+  const text = [`My route (${plural(r.visits.length, "stop")}, ${kmText(r.km)}, ${fmtMin(r.min)})`, `Start: ${st.start === "here" && here ? "my location" : "New Kingston depot"}`,
+    ...r.visits.map(v => `${v.seq}. ${v.stop.merchants.join(" · ")}, ${v.stop.address}, ${v.stop.parish} (${termsOf(pool, v.stop).map(t => t.id).join(", ")})`)].join("\n");
+  try { await navigator.clipboard.writeText(text); toast("Route copied"); }
+  catch {
+    const ta = Object.assign(document.createElement("textarea"), { value: text }); document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast("Route copied"); } catch { toast("Couldn't copy. Select the text instead."); } ta.remove();
+  }
+}
+
+function setStart(kind) {
+  if (kind === "depot") { st.start = "depot"; save(); return rerender(); }
+  if (!navigator.geolocation) { toast("This device can't share its location."); return; }
+  $("startNote").textContent = "Finding you…";
+  navigator.geolocation.getCurrentPosition(pos => {
+    const p = [pos.coords.latitude, pos.coords.longitude];
+    if (p[0] < 17.5 || p[0] > 18.7 || p[1] < -78.6 || p[1] > -76) { toast("You're outside Jamaica, so we'll keep the depot."); return rerender(); }
+    here = p; st.start = "here"; save(); rerender();
+  }, () => { toast("Location is blocked. Allow it in your browser settings, or use the depot."); rerender(false); }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+}
+
+function setN(v) {
+  v = Math.max(1, Math.min(MAX_STOPS, Math.round(Number(v)) || st.n));
+  if (v === st.n) { $("n").value = st.n; return; }
+  st.n = v; st.day = 0; prevChosen = null; save(); rerender();
+}
+
+document.addEventListener("click", e => {
+  const t = e.target;
+  const rm = t.closest("[data-rm]"), day = t.closest("[data-day]"), focus = t.closest("[data-focus]"), show = t.closest("[data-showmap]");
+  if (rm) { st.ids = st.ids.filter(id => id !== rm.dataset.rm); st.chosen = st.chosen.filter(id => id !== rm.dataset.rm); save(); rerender(); }
+  else if (day) { st.day = +day.dataset.day; save(); fitNext = true; renderAuto(myStops()); }
+  else if (focus) { st.focus = focus.dataset.focus; fitNext = true; renderChoose(myStops()); }
+  else if (show) setView("map");
+  else if (t.closest("#useSug")) {
+    const pool = myStops(), s = suggest(chosenStops(pool), pool);
+    prevChosen = [...st.chosen]; setChosen(s.set); st.focus = "mine"; toast("Using the suggested route"); rerender();
+  }
+  else if (t.closest("#undoSug")) { st.chosen = prevChosen; prevChosen = null; st.focus = "mine"; save(); rerender(); }
+  else if (t.closest("#pickNone")) { st.chosen = []; prevChosen = null; save(); rerender(); }
+  else if (t.closest("#refine")) refine();
+  else if (t.closest("#copy")) copyList();
+});
+document.addEventListener("change", e => {
+  const pick = e.target.closest("[data-pick]");
+  if (pick) toggleStop(pick.dataset.pick);
+});
+const grow = () => { const a = $("add"); a.style.height = "auto"; a.style.height = Math.min(a.scrollHeight + 2, 140) + "px"; };
+$("add").addEventListener("input", grow);
+$("add").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("addForm").requestSubmit(); } });  // Enter adds; pasted line breaks are kept
+$("addForm").onsubmit = e => { e.preventDefault(); const v = $("add").value.trim(); if (v) addIds(v); };
+$("add").oninput = e => { if (!/^[\d\s,;]*$/.test(e.target.value)) search(e.target.value); else { $("results").innerHTML = ""; $("addMsg").textContent = ""; } };
+$("clearAll").onclick = () => { st.ids = []; st.chosen = []; prevChosen = null; save(); $("addMsg").textContent = ""; rerender(); };
+$("nMinus").onclick = () => setN(st.n - 1);
+$("nPlus").onclick = () => setN(st.n + 1);
+$("n").onchange = e => setN(e.target.value);
+$("loop").onchange = e => { st.loop = e.target.checked; save(); rerender(); };
+document.querySelectorAll("#startSeg button").forEach(b => b.onclick = () => setStart(b.dataset.start));
+document.querySelectorAll("#modeSeg button").forEach(b => b.onclick = () => { st.mode = b.dataset.mode; prevChosen = null; save(); rerender(); });
+
+// Phone tabs and colour theme
+function setView(v) {
+  document.body.dataset.view = v;
+  document.querySelectorAll("#tabbar button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.v === v)));
+  window.scrollTo(0, 0);
+  if (v === "map") setTimeout(() => { map.invalidateSize(); if (view) { fitNext = true; drawMap(); } }, 60);
+}
+document.querySelectorAll("#tabbar button").forEach(b => b.onclick = () => setView(b.dataset.v));
+isMobile.addEventListener("change", () => setTimeout(() => map.invalidateSize(), 60));
+
+const THEMES = { auto: ["◐", "Theme: follows your device. Tap for light."], light: ["☀", "Theme: light. Tap for dark."], dark: ["☾", "Theme: dark. Tap to follow your device."] };
+let theme = store.get("theme", "auto");
+function applyTheme() {
+  if (!THEMES[theme]) theme = "auto";
+  theme === "auto" ? delete document.documentElement.dataset.theme : document.documentElement.dataset.theme = theme;
+  $("themeBtn").textContent = THEMES[theme][0]; $("themeBtn").title = THEMES[theme][1]; $("themeBtn").setAttribute("aria-label", THEMES[theme][1]);
+}
+$("themeBtn").onclick = () => { theme = { auto: "light", light: "dark", dark: "auto" }[theme]; store.set("theme", theme); applyTheme(); toast(THEMES[theme][1].split(".")[0]); };
+applyTheme();
+
+// ---------------------------------------------------------------------------
+fetch("stops.json", { cache: "no-store" })
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => {
+    data = d;
+    if (st.start === "here") st.start = "depot";  // never ask for location on load; the driver opts in each visit
+    net = roadNetwork(d.hubs, d.roads);
+    const seen = {};
+    d.stops.forEach(s => {
+      byId[s.id] = s;
+      s.terminals.forEach(t => byTerminal.set(t.id, s));
+      s.node = net.node([s.lat, s.lon]);
+      const key = `${s.lat},${s.lon}`, n = seen[key] = (seen[key] || 0) + 1;  // many stops share a town-centre pin: fan them out
+      const r = n > 1 ? 0.0006 * Math.sqrt(n - 1) : 0, a = n * 2.39996;
+      s.show = [s.lat + r * Math.sin(a), s.lon + r * Math.cos(a)];
+    });
+    $("meta").textContent = `${d.stops.reduce((a, s) => a + s.terminals.length, 0)} terminals · updated ${d.generated_at.replace("T", " ")}`;
+    rerender();
+  })
+  .catch(() => $("meta").textContent = "Could not load the terminal list. Check your connection and refresh.");
+</script>
+</body>
+</html>
