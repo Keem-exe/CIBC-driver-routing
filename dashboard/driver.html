@@ -35,6 +35,7 @@
   button, input, textarea { font: inherit; color: inherit; }
   a { color: var(--accent); }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   .app { display: grid; grid-template-columns: 440px 1fr; height: 100vh; }
@@ -59,15 +60,32 @@
   .lead { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
 
   .addrow { display: flex; gap: 8px; }
-  .addrow textarea { flex: 1; resize: none; max-height: 140px; line-height: 1.35; min-width: 0; background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: 15px; }
+  .addrow textarea { flex: 1; resize: none; max-height: 140px; min-height: 44px; line-height: 1.35; overflow-y: auto; min-width: 0; background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: 15px; }
   .addrow textarea:focus { outline: none; border-color: var(--accent); }
   .msg { min-height: 18px; margin-top: 6px; font-size: 12px; color: var(--muted); }
   .msg.bad { color: var(--danger); }
   .msg.good { color: var(--ok); }
-  .results { margin-top: 6px; display: grid; gap: 4px; }
-  .results button { text-align: left; background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
-  .results button:hover { border-color: var(--accent); }
-
+  .browse { margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .browse > summary { cursor: pointer; padding: 11px 12px; font-weight: 600; font-size: 13px; list-style: none; display: flex; align-items: center; min-height: 44px; }
+  .browse > summary::-webkit-details-marker { display: none; }
+  .browse > summary::after { content: "\25BE"; color: var(--muted); }
+  .browse[open] > summary::after { content: "\25B4"; }
+  .browse > summary span { color: var(--muted); font-weight: 500; margin-right: auto; margin-left: 8px; }
+  .bfilters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 12px 8px; align-items: center; }
+  .bfilters input[type="search"], .bfilters select { min-width: 0; width: 100%; background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; font-size: 14px; min-height: 40px; }
+  .bfilters input[type="search"] { grid-column: 1 / -1; font-size: 15px; }
+  .tablewrap { max-height: 320px; overflow: auto; border-top: 1px solid var(--line); }
+  #btable { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #btable th { position: sticky; top: 0; background: var(--chip); text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 7px 8px; z-index: 1; }
+  #btable td { padding: 9px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  #btable .c { width: 40px; text-align: center; }
+  #btable tbody tr { cursor: pointer; }
+  #btable tbody tr:hover { background: var(--chip); }
+  #btable tbody tr.on { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+  #btable input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+  #btable code { font-size: 12px; white-space: nowrap; }
+  #btable .a { color: var(--muted); font-size: 12px; }
+  .bfoot { padding: 8px 12px; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); }
   .mine-head { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 6px; font-weight: 600; font-size: 13px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   #mine { max-height: 112px; overflow-y: auto; padding: 2px; }
@@ -181,14 +199,31 @@
 
     <section class="card" id="s1">
       <h2><span class="num">1</span>My terminals</h2>
-      <p class="lead">Paste every terminal ID you have to deliver. Separate them with spaces, commas or new lines.</p>
+      <p class="lead">Tick the terminals you have to deliver, or paste their IDs. Either way works, and you can mix them.</p>
       <form class="addrow" id="addForm" autocomplete="off">
         <label class="sr" for="add">Terminal IDs, or a business name to search</label>
-        <textarea id="add" rows="2" inputmode="text" placeholder="Paste your terminal IDs here, or type a business name to search" enterkeyhint="done"></textarea>
+        <textarea id="add" rows="1" inputmode="text" placeholder="Paste terminal IDs here" enterkeyhint="done"></textarea>
         <button class="btn" type="submit">Add</button>
       </form>
       <div class="msg" id="addMsg" role="status" aria-live="polite"></div>
-      <div class="results" id="results"></div>
+      <details class="browse" id="browse">
+        <summary>Pick from the list <span id="browseCount"></span></summary>
+        <div class="bfilters">
+          <input id="bq" type="search" placeholder="Search ID, business or address" autocomplete="off" spellcheck="false" aria-label="Search terminals">
+          <select id="bparish" aria-label="Parish"><option value="">All parishes</option></select>
+          <label class="check"><input type="checkbox" id="bmine"> Mine only</label>
+        </div>
+        <div class="tablewrap" id="tablewrap">
+          <table id="btable">
+            <thead><tr>
+              <th class="c"><input type="checkbox" id="ball" aria-label="Tick every terminal shown"></th>
+              <th>Terminal ID</th><th>Business</th>
+            </tr></thead>
+            <tbody id="bbody"></tbody>
+          </table>
+        </div>
+        <div class="bfoot"><span id="bnote"></span> <button type="button" class="btn link" id="bmore" hidden>Show more</button></div>
+      </details>
       <div id="mineBox" hidden>
         <div class="mine-head"><span id="mineCount"></span><button class="btn link" id="clearAll" type="button">Remove all</button></div>
         <div class="chips" id="mine"></div>
@@ -578,7 +613,7 @@ map.on("popupopen", e => {
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-function rerender(fit = true) { fitNext = fit; renderMine(); renderPlan(); }
+function rerender(fit = true) { fitNext = fit; renderMine(); renderPlan(); if (allRows.length) syncBrowse(); }
 
 function toggleStop(stopId) {
   const pool = myStops(), chosen = chosenStops(pool), s = byId[stopId];
@@ -590,9 +625,13 @@ function toggleStop(stopId) {
 function addIds(text) {
   const tokens = [...new Set(text.split(/[\s,;]+/).filter(Boolean))];
   const looksLikeIds = tokens.length && tokens.every(t => /^\d+$/.test(t));
-  const msg = $("addMsg"), results = $("results");
-  results.innerHTML = "";
-  if (!looksLikeIds) return search(text);
+  const msg = $("addMsg");
+  if (!looksLikeIds) {  // a business name: the list below does the searching
+    $("browse").open = true; $("bq").value = text.trim(); bShown = BROWSE_STEP; renderBrowse();
+    msg.className = "msg"; msg.textContent = "That looks like a name, not terminal IDs. Showing matches in the list below.";
+    $("add").value = ""; grow();
+    return;
+  }
   const fresh = tokens.filter(t => !st.ids.includes(t)), found = fresh.filter(t => byTerminal.has(t)), missing = fresh.filter(t => !byTerminal.has(t));
   st.ids = [...st.ids, ...found, ...missing]; save();
   const dup = tokens.length - fresh.length;
@@ -604,23 +643,61 @@ function addIds(text) {
   rerender();
   if (found.length) setTimeout(() => $("s2").scrollIntoView({ behavior: "smooth", block: "start" }), 150);  // on to the next step
 }
-function search(q) {
-  q = q.trim().toUpperCase();
-  const msg = $("addMsg"), box = $("results");
-  if (q.length < 2) { msg.className = "msg"; msg.textContent = ""; return; }
-  const hits = [];
-  for (const s of data.stops) {
-    if (s.merchants.some(m => m.includes(q)) || s.address.toUpperCase().includes(q))
-      for (const t of s.terminals) if (!st.ids.includes(t.id)) hits.push({ s, t });
-    if (hits.length >= 8) break;
-  }
-  msg.className = "msg";
-  msg.textContent = hits.length ? "Tap a terminal to add it:" : "No terminal matches that. Try the ID, or part of the business name.";
-  box.innerHTML = hits.map((h, i) => `<button type="button" data-hit="${i}"><b>${esc(h.s.merchants[0])}</b><br><span class="sub">${esc(h.t.id)} · ${esc(h.t.currency)} · ${esc(h.s.address)}, ${esc(h.s.parish)}</span></button>`).join("");
-  box.querySelectorAll("[data-hit]").forEach(b => b.onclick = () => {
-    st.ids.push(hits[+b.dataset.hit].t.id); save(); box.innerHTML = ""; msg.textContent = ""; $("add").value = ""; rerender();
-  });
+// Terminal table: every terminal, filterable; tick to add or remove (no typing of IDs needed).
+let allRows = [], bShown = 60, bTimer = 0;
+const BROWSE_STEP = 60;
+function buildRows() {
+  allRows = data.stops.flatMap(s => s.terminals.map(t => ({ s, t })))
+    .sort((a, b) => a.s.merchants[0].localeCompare(b.s.merchants[0]) || a.t.id.localeCompare(b.t.id));
+  const counts = {};
+  data.stops.forEach(s => counts[s.parish] = (counts[s.parish] || 0) + s.terminals.length);
+  $("bparish").innerHTML = '<option value="">All parishes</option>' + Object.entries(counts).sort((a, b) => b[1] - a[1])
+    .map(([p, c]) => `<option value="${esc(p)}">${esc(p)} (${c})</option>`).join("");
 }
+const browseMatches = () => {
+  const q = $("bq").value.trim().toUpperCase(), par = $("bparish").value, mine = $("bmine").checked, have = new Set(st.ids);
+  return allRows.filter(({ s, t }) => (!par || s.parish === par) && (!mine || have.has(t.id))
+    && (!q || t.id.includes(q) || s.merchants.some(m => m.includes(q)) || s.address.toUpperCase().includes(q)));
+};
+const shownIds = () => [...$("bbody").querySelectorAll("tr[data-bt]")].map(tr => tr.dataset.bt);
+function renderBrowse(resetScroll = true) {
+  if (!data) return;
+  const rows = browseMatches(), shown = rows.slice(0, bShown), have = new Set(st.ids);
+  $("bbody").innerHTML = shown.map(({ s, t }) => `<tr class="${have.has(t.id) ? "on" : ""}" data-bt="${esc(t.id)}">
+      <td class="c"><input type="checkbox" tabindex="-1" aria-label="Tick ${esc(t.id)}" ${have.has(t.id) ? "checked" : ""}></td>
+      <td><code>${esc(t.id)}</code><div class="a">${esc(t.currency)}</div></td>
+      <td><b>${esc(s.merchants[0])}</b><div class="a">${esc(s.address)}, ${esc(s.parish)}</div></td></tr>`).join("")
+    || '<tr><td colspan="3" class="a" style="padding:16px;text-align:center">Nothing matches. Try part of the business name, or the ID.</td></tr>';
+  $("bmore").hidden = rows.length <= bShown;
+  $("bnote").textContent = rows.length ? `Showing ${shown.length} of ${rows.length} terminal${rows.length === 1 ? "" : "s"}` : "";
+  $("ball").checked = shown.length > 0 && shown.every(r => have.has(r.t.id));
+  if (resetScroll) $("tablewrap").scrollTop = 0;
+  $("browseCount").textContent = st.ids.length ? `\u00b7 ${st.ids.length} chosen` : "";
+}
+function syncBrowse() {  // a change from elsewhere (chip removed, list cleared): update ticks in place and keep the scroll position
+  if ($("bmine").checked) return renderBrowse(false);
+  const have = new Set(st.ids);
+  $("bbody").querySelectorAll("tr[data-bt]").forEach(tr => { const on = have.has(tr.dataset.bt); tr.classList.toggle("on", on); tr.querySelector("input").checked = on; });
+  const ids = shownIds();
+  $("ball").checked = ids.length > 0 && ids.every(id => have.has(id));
+  $("browseCount").textContent = st.ids.length ? `\u00b7 ${st.ids.length} chosen` : "";
+}
+function setTerminals(ids, on) {
+  const have = new Set(st.ids);
+  st.ids = on ? [...st.ids, ...ids.filter(id => !have.has(id))] : st.ids.filter(id => !ids.includes(id));
+  st.chosen = st.chosen.filter(id => st.ids.includes(id));
+  prevChosen = null; save(); rerender();
+}
+$("bbody").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-bt]"); if (!tr) return;
+  const id = tr.dataset.bt;
+  setTerminals([id], !st.ids.includes(id));
+});
+$("ball").onchange = e => setTerminals(shownIds(), e.target.checked);
+$("bq").oninput = () => { clearTimeout(bTimer); bTimer = setTimeout(() => { bShown = BROWSE_STEP; renderBrowse(); }, 120); };
+$("bparish").onchange = () => { bShown = BROWSE_STEP; renderBrowse(); };
+$("bmine").onchange = () => { bShown = BROWSE_STEP; renderBrowse(); };
+$("bmore").onclick = () => { bShown += BROWSE_STEP; renderBrowse(false); };
 
 async function refine() {
   const r = view?.route; if (!r) return;
@@ -695,8 +772,7 @@ const grow = () => { const a = $("add"); a.style.height = "auto"; a.style.height
 $("add").addEventListener("input", grow);
 $("add").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("addForm").requestSubmit(); } });  // Enter adds; pasted line breaks are kept
 $("addForm").onsubmit = e => { e.preventDefault(); const v = $("add").value.trim(); if (v) addIds(v); };
-$("add").oninput = e => { if (!/^[\d\s,;]*$/.test(e.target.value)) search(e.target.value); else { $("results").innerHTML = ""; $("addMsg").textContent = ""; } };
-$("clearAll").onclick = () => { st.ids = []; st.chosen = []; prevChosen = null; save(); $("addMsg").textContent = ""; rerender(); };
+$("clearAll").onclick = () => { st.ids = []; st.chosen = []; prevChosen = null; save(); $("addMsg").textContent = ""; $("browse").open = true; rerender(); };
 $("nMinus").onclick = () => setN(st.n - 1);
 $("nPlus").onclick = () => setN(st.n + 1);
 $("n").onchange = e => setN(e.target.value);
@@ -740,6 +816,9 @@ fetch("stops.json", { cache: "no-store" })
       const r = n > 1 ? 0.0006 * Math.sqrt(n - 1) : 0, a = n * 2.39996;
       s.show = [s.lat + r * Math.sin(a), s.lon + r * Math.cos(a)];
     });
+    buildRows();
+    $("browse").open = !st.ids.length;  // first visit: show the list straight away
+    renderBrowse();
     $("meta").textContent = `${d.stops.reduce((a, s) => a + s.terminals.length, 0)} terminals · updated ${d.generated_at.replace("T", " ")}`;
     rerender();
   })
