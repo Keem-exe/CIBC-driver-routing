@@ -210,6 +210,9 @@
   }
   @media (max-width: 480px) { .stats.four { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 360px) { .vs { grid-template-columns: 1fr; } }
+  @media (max-width: 480px) { .opt-card { padding: 8px 9px; } .opt-card dd { font-size: 12px; white-space: nowrap; } .opt-card dl div { flex-wrap: nowrap; } }
+  /* iOS Safari zooms the page when a focused field's text is under 16px */
+  @media (max-width: 800px) { input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea, .addrow textarea, .bfilters input[type="search"], .bfilters select { font-size: 16px; } }
 </style>
 </head>
 <body data-view="plan">
