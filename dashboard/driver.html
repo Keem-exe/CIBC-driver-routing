@@ -666,12 +666,48 @@ function renderAuto(pool) {
       </button>`).join("")}</div>
     <div id="detail"></div>`;
   const cur = days[st.day];
-  view = { route: cur.route, ghost: null, color: COLORS[0], pool, toggle: false };
-  renderDetail(cur.route, pool);
+  autoDay = cur.stops;
+
+  // The selected day, against a better version of it (swapping in stops from other days).
+  const sug = advice || !cur.stops.length ? null : advise(cur.stops, pool);
+  const dsig = daySig(cur.stops), better = !!(sug && sug.steps.length), declined = better && keptDay === dsig, showSug = better && !declined;
+  if (!showSug && st.focus === "suggested") st.focus = "mine";
+  const onSug = showSug && st.focus === "suggested", label = g.active ? "recommended" : "suggested";
+  let cmp = "";
+  if (showSug) {
+    cmp = `<div class="cmp"><div class="sug">
+        <h3>Day ${st.day + 1}: we'd suggest ${sug.steps.length === 1 ? "one change" : plural(sug.steps.length, "change")}</h3>
+        <p><b>${verdictText(cur.stops, sug, cur.route)}</b> Stops would come from your other days, so those days change too.</p>
+        <ul>${sug.steps.map(s => stepHtml(s, pool, g)).join("")}</ul>
+      </div>${compareCards(cur.stops, sug, cur.route, g, onSug, `Day ${st.day + 1} as planned`)}</div>`;
+  } else if (declined) {
+    cmp = `<div class="good-note neutral">Keeping Day ${st.day + 1} as planned. <button type="button" class="btn link" id="showSug">Show the ${label} change again</button></div>`;
+  }
+  $("detail").insertAdjacentHTML("beforebegin", cmp);
+  const showRoute = onSug ? sug.route : cur.route;
+  view = { route: showRoute, ghost: onSug ? cur.route : (showSug ? sug.route : null), color: onSug ? "#059669" : COLORS[0], pool, toggle: false,
+           label: showSug ? (onSug ? label : "your day") : "" };
+  renderDetail(showRoute, pool);
   drawMap();
 }
+let autoDay = [], keptDay = "";
+const daySig = stops => [stops.map(s => s.id).sort().join(), st.n, st.t, st.opt, st.loop, st.start].join("|");
+const rerenderMode = () => st.mode === "auto" ? renderAuto(myStops()) : renderChoose(myStops());
 
 const upDiff = d => d ? `<em class="${d > 0 ? "better" : "worse"}">${d > 0 ? "+" : "−"}${Math.abs(d)}</em>` : "";
+
+/** One suggested change (swap / drop / add) as a list item, with the km and terminals it moves. */
+function stepHtml(s, pool, g) {
+  const nm = x => `<b>${esc(x.merchants[0])}</b> <span class="ids">${idList(termsOf(pool, x))}</span>`;
+  const km = s.delta === undefined ? "" : s.delta < 0 ? `saves ${(-s.delta).toFixed(1)} km` : `+${s.delta.toFixed(1)} km`;
+  const dT = s.type === "swap" ? tcOf(s.in) - tcOf(s.out) : s.type === "add" ? tcOf(s.stop) : -tcOf(s.stop);
+  const tm = g.want ? `${dT >= 0 ? "+" : "−"}${plural(Math.abs(dT), "terminal")}` : "";
+  const tail = [km, tm].filter(Boolean).join(", ");
+  const head = s.type === "swap" ? `Swap ${nm(s.out)} for ${nm(s.in)}`
+    : s.type === "drop" ? `Drop ${nm(s.stop)}${g.active ? "" : ` to keep to ${plural(st.n, "stop")}`}`
+    : `Add ${nm(s.stop)}${g.active ? "" : ` to reach ${plural(st.n, "stop")}`}`;
+  return `<li>${head}${tail ? ` — ${tail}` : ""}</li>`;
+}
 
 /** One line on what switching does: time saved (or added) and terminals gained (or lost). */
 function verdictText(chosen, sug, mineRoute) {
@@ -685,7 +721,7 @@ function verdictText(chosen, sug, mineRoute) {
 }
 
 /** Your pick (in its best order) and the recommendation side by side, so the driver sees what each gives before choosing. */
-function compareCards(chosen, sug, mineRoute, g, onSug) {
+function compareCards(chosen, sug, mineRoute, g, onSug, mine = "Your pick") {
   const mineTerms = termSum(chosen), sugTerms = termSum(sug.set), name = g.active ? "Recommended" : "Suggested";
   const dMin = sug.route.min - mineRoute.min, dKm = sug.route.km - mineRoute.km, dT = sugTerms - mineTerms, dS = sug.set.length - chosen.length;
   const badges = [
@@ -700,7 +736,7 @@ function compareCards(chosen, sug, mineRoute, g, onSug) {
   const show = (key, on) => `<button type="button" class="btn ghost sm" data-focus="${key}" aria-pressed="${on}">${on ? "Showing route" : "Show route"}</button>`;
   return `<div class="vs">
     <div class="opt-card${onSug ? "" : " on"}">
-      <div class="oh">Your pick</div><div class="osub">In the best order</div>
+      <div class="oh">${mine}</div><div class="osub">In the best order</div>
       <div class="obadges"></div>
       ${dl(mineRoute, chosen, mineTerms, false)}
       <div class="oact">${show("mine", !onSug)}<button type="button" class="btn ghost" id="keepMine">Keep my route</button></div>
@@ -733,17 +769,7 @@ function renderChoose(pool) {
     const why = g.active && g.short
       ? `The most ${plural(st.n, "stop")} can give is ${plural(g.maxN, "terminal")}, and ${g.want} takes at least ${plural(g.needK, "stop")}. ${g.big ? `That's more than the ${MAX_STOPS} we can plan, so here is the closest we can get. Try a lower target.` : `Recommended: ${plural(sug?.set.length ?? 0, "stop")} for ${plural(sugTerms, "terminal")}.`}`
       : below ? `A different set of stops would ${sugTerms >= g.want ? "get you there" : `get you closer (${sugTerms})`}.` : "";
-    const stepText = s => {
-      const nm = x => `<b>${esc(x.merchants[0])}</b> <span class="ids">${idList(termsOf(pool, x))}</span>`;
-      const km = s.delta === undefined ? "" : s.delta < 0 ? `saves ${(-s.delta).toFixed(1)} km` : `+${s.delta.toFixed(1)} km`;
-      const dT = s.type === "swap" ? tcOf(s.in) - tcOf(s.out) : s.type === "add" ? tcOf(s.stop) : -tcOf(s.stop);
-      const tm = g.want ? `${dT >= 0 ? "+" : "−"}${plural(Math.abs(dT), "terminal")}` : "";
-      const tail = [km, tm].filter(Boolean).join(", ");
-      const head = s.type === "swap" ? `Swap ${nm(s.out)} for ${nm(s.in)}`
-        : s.type === "drop" ? `Drop ${nm(s.stop)}${g.active ? "" : ` to keep to ${plural(st.n, "stop")}`}`
-        : `Add ${nm(s.stop)}${g.active ? "" : ` to reach ${plural(st.n, "stop")}`}`;
-      return `<li>${head}${tail ? ` — ${tail}` : ""}</li>`;
-    };
+    const stepText = s => stepHtml(s, pool, g);
     cmp = `
     <div class="cmp">
       ${showSug ? `
@@ -1021,17 +1047,18 @@ document.addEventListener("click", e => {
   const rm = t.closest("[data-rm]"), day = t.closest("[data-day]"), focus = t.closest("[data-focus]"), show = t.closest("[data-showmap]");
   if (rm) { st.ids = st.ids.filter(id => id !== rm.dataset.rm); st.chosen = st.chosen.filter(id => id !== rm.dataset.rm); save(); rerender(); }
   else if (day) { st.day = +day.dataset.day; save(); fitNext = true; renderAuto(myStops()); }
-  else if (focus) { st.focus = focus.dataset.focus; fitNext = true; renderChoose(myStops()); }
+  else if (focus) { st.focus = focus.dataset.focus; fitNext = true; rerenderMode(); }
   else if (show) setView("map");
   else if (t.closest("#useSug")) {
-    const pool = myStops(), s = advise(chosenStops(pool), pool);
-    prevChosen = { chosen: [...st.chosen], n: st.n }; setChosen(s.set);
+    const pool = myStops(), auto = st.mode === "auto", s = advise(auto ? autoDay : chosenStops(pool), pool);
+    prevChosen = { chosen: [...st.chosen], n: st.n, mode: st.mode }; setChosen(s.set);
+    if (auto) { st.mode = "choose"; toast("Switched to \"I'll choose my stops\" with the recommended stops ticked"); }
     if (s.set.length > st.n) st.n = s.set.length;  // the recommendation needed more stops than planned
-    st.focus = "mine"; save(); toast("Using the recommended route"); rerender();
+    st.focus = "mine"; save(); if (!auto) toast("Using the recommended route"); rerender();
   }
-  else if (t.closest("#keepMine")) { kept = chooseSig(); st.focus = "mine"; toast("Keeping your route"); fitNext = true; renderChoose(myStops()); }
-  else if (t.closest("#showSug")) { kept = ""; renderChoose(myStops()); }
-  else if (t.closest("#undoSug")) { st.chosen = prevChosen.chosen; st.n = prevChosen.n; prevChosen = null; st.focus = "mine"; save(); rerender(); }
+  else if (t.closest("#keepMine")) { st.mode === "auto" ? keptDay = daySig(autoDay) : kept = chooseSig(); st.focus = "mine"; toast("Keeping your route"); fitNext = true; rerenderMode(); }
+  else if (t.closest("#showSug")) { kept = ""; keptDay = ""; rerenderMode(); }
+  else if (t.closest("#undoSug")) { st.chosen = prevChosen.chosen; st.n = prevChosen.n; st.mode = prevChosen.mode ?? st.mode; prevChosen = null; st.focus = "mine"; save(); rerender(); }
   else if (t.closest("#useK")) { st.n = +t.closest("#useK").dataset.k; st.day = 0; save(); toast(`Planning ${plural(st.n, "stop")} a day`); rerender(); }
   else if (t.closest("#keepN")) { keptAuto = autoSig(); renderAuto(myStops()); }
   else if (t.closest("#pickNone")) { st.chosen = []; prevChosen = null; save(); rerender(); }
