@@ -850,7 +850,7 @@ function renderDetail(r0, pool) {
       <li class="startrow" style="display:block">${st.start === "here" && here ? "Start: your location" : "Start: New Kingston depot"}${r.closed ? ", finish back there" : ""}</li>
       ${r.visits.map(v => { const s = v.stop; return `<li>
         <span class="seq" style="background:${view.color}">${v.seq}</span>
-        <span><div class="addr">${esc(s.merchants.join(" · "))}</div>
+        <span><div class="addr">${esc(s.merchants.join(" · "))}${s.no_physical ? '<span class="tag warn" title="The CSV marks every terminal here as having no physical location">NO PHYSICAL</span>' : ""}</div>
           <div class="sub">${esc(s.address)}, ${esc(s.parish)}</div>
           <div class="ids">${idList(termsOf(pool, s))}</div></span>
         <span class="eta">+${fmtMin(v.eta)}<br>${v.legKm.toFixed(1)} km</span>
@@ -985,7 +985,7 @@ function renderBrowse(resetScroll = true) {
   const rows = browseMatches(), shown = rows.slice(0, bShown), have = new Set(st.ids);
   $("bbody").innerHTML = shown.map(({ s, t }) => `<tr class="${have.has(t.id) ? "on" : ""}" data-bt="${esc(t.id)}">
       <td class="c"><input type="checkbox" tabindex="-1" aria-label="Tick ${esc(t.id)}" ${have.has(t.id) ? "checked" : ""}></td>
-      <td><code>${esc(t.id)}</code><div class="a">${esc(t.currency)}</div></td>
+      <td><code>${esc(t.id)}</code><div class="a">${esc(t.currency)}${t.physical === "N" ? " · no physical location" : ""}</div></td>
       <td><b>${esc(s.merchants[0])}</b><div class="a">${esc(s.address)}, ${esc(s.parish)}</div></td></tr>`).join("")
     || '<tr><td colspan="3" class="a" style="padding:16px;text-align:center">Nothing matches. Try part of the business name, or the ID.</td></tr>';
   $("bmore").hidden = rows.length <= bShown;

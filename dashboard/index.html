@@ -1050,7 +1050,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
           const s = v.stop, approx = s.precision === "parish" || s.parish_mismatch;
           return `<li data-key="${i}-${v.seq}">
             <span class="seq" style="background:${color}">${v.seq}</span>
-            <span><div class="addr">${esc(s.merchants.join(" · "))}${approx ? '<span class="tag" title="Map pin is only approximate; navigation links search the address">APPROX</span>' : ""}</div>
+            <span><div class="addr">${esc(s.merchants.join(" · "))}${approx ? '<span class="tag" title="Map pin is only approximate; navigation links search the address">APPROX</span>' : ""}${s.no_physical ? '<span class="tag" title="The CSV marks every terminal here as having no physical location (Physical Location? = N)">NO PHYSICAL</span>' : ""}</div>
               <div class="sub">${esc(s.address)}, ${esc(s.parish)}${s.parish_mismatch ? ` (listed as ${esc(s.listed_parish)})` : ""}</div>
               <div class="sub terms">${s.terminals.map(t => `<code>${esc(t.id)}</code> ${esc(t.currency)}`).join(" · ")}</div></span>
             <span class="eta">+${fmtMin(v.eta)}<br>${v.legKm.toFixed(1)} km</span>
