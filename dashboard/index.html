@@ -410,6 +410,8 @@
             <input type="number" id="speed" min="5" max="100" inputmode="numeric"></label>
           <label class="field"><span>Day length (hours) <button type="button" class="tip" data-tip="How long one driver can work. Routes longer than this are flagged OVER DAY, and the planner tells you how many drivers would fit.">i</button></span>
             <input type="number" id="day" min="1" max="24" step="0.5" inputmode="decimal"></label>
+          <label class="field"><span>Max stops per driver per day <button type="button" class="tip" data-tip="Most stops one driver should visit in a day. The planner adds drivers when a route would go over it. Leave at 0 for no limit.">i</button></span>
+            <input type="number" id="maxPerDay" min="0" max="60" inputmode="numeric"></label>
         </div>
       </details>
       <details class="more">
@@ -488,6 +490,7 @@
       <div class="resulthead">
         <h2 id="p3h">Routes</h2>
         <span class="hbtns"><button class="link" type="button" data-goto="2">← Change stops</button>
+          <button class="link" id="csvBtn" type="button">⬇ Export CSV</button>
           <button class="link" id="printBtn" type="button">🖨 Print / PDF</button></span>
       </div>
       <div class="sub scope" id="scope"></div>
@@ -591,11 +594,12 @@ const store = {
 const DEFAULTS = { drivers: 3, serviceMin: 15, speed: 35, dayHours: 8, parishes: ["Kingston", "Saint Andrew"],
                    depot: [18.0075, -76.7850],  // New Kingston
                    picked: [], startId: null, order: "best", loopArea: true, loopPicked: false,
-                   gRadius: 6, gMax: 5, pin: {}, merge: true };  // pin: stop id -> driver index the scheduler moved it to
+                   gRadius: 6, gMax: 5, pin: {}, merge: true, maxPerDay: 0 };  // pin: stop id -> driver index the scheduler moved it to
 const hadSaved = store.get("routeSettings", null) !== null;
 let settings = { ...DEFAULTS, ...store.get("routeSettings", {}) };
 // mode says what is routed: "parishes" or "terminals" (the hand-picked list). Older saves had no mode: a saved selection meant terminals.
 if (settings.mode !== "parishes" && settings.mode !== "terminals") settings.mode = settings.picked.length ? "terminals" : "parishes";
+let lastRoutes = [];
 let names = store.get("driverNames", []);
 const driverName = i => names[i] || `Driver ${i + 1}`;
 const save = () => store.set("routeSettings", settings);
@@ -672,7 +676,7 @@ function consolidate(routes, origin, opts, dayMin) {
       const a = list[i], b = list[j];
       const m = plan([...a.visits, ...b.visits].map(v => v.stop), origin.p, 1, settings, net, opts)[0];
       const gain = a.km + b.km - m.km;  // km saved by not driving the shared stretch twice
-      if (m.min <= dayMin && gain >= Math.max(1, 0.25 * Math.min(a.km, b.km)) && (!best || gain > best.gain)) best = { i, j, m, gain };
+      if (m.min <= dayMin && (!settings.maxPerDay || m.visits.length <= settings.maxPerDay) && gain >= Math.max(1, 0.25 * Math.min(a.km, b.km)) && (!best || gain > best.gain)) best = { i, j, m, gain };
     }
     if (!best) break;
     list[best.i] = best.m; list.splice(best.j, 1); saved += best.gain;
@@ -707,7 +711,7 @@ function consolidate(routes, origin, opts, dayMin) {
       const ra = plan(A.visits.filter(v => v !== c.v).map(v => v.stop), origin.p, 1, settings, net, opts)[0];
       const rb = plan([...B.visits.map(v => v.stop), c.v.stop], origin.p, 1, settings, net, opts)[0];
       const gain = A.km + B.km - ra.km - rb.km;
-      if (gain >= 1 && rb.min <= dayMin) { list[c.a] = ra; list[c.b] = rb; moved++; movedKm += gain; done = true; break; }
+      if (gain >= 1 && rb.min <= dayMin && (!settings.maxPerDay || rb.visits.length <= settings.maxPerDay)) { list[c.a] = ra; list[c.b] = rb; moved++; movedKm += gain; done = true; break; }
     }
     if (!done) break;
   }
@@ -739,11 +743,19 @@ function replan() {
       ? plan(ids.map(id => byId[id]), origin.p, 1, settings, net, { ...opts, pin: null })[0]
       : { visits: [], km: 0, min: 0, method: "", closed: opts.closed, altKm: null });
   } else if (selecting) {  // a hand-picked set uses as few drivers as fit the working day
-    for (let k = 1; k <= Math.min(available, Math.max(1, stops.length)); k++) {
+    const cap = settings.maxPerDay | 0;
+    for (let k = 1; k <= Math.min(cap ? 30 : available, Math.max(1, stops.length)); k++) {
       routes = plan(stops, origin.p, k, settings, net, opts);
-      if (Math.max(0, ...routes.filter((_, i) => !overridden.has(i)).map(r => r.min)) <= settings.dayHours * 60) break;
+      const fitsDay = Math.max(0, ...routes.filter((_, i) => !overridden.has(i)).map(r => r.min)) <= settings.dayHours * 60;
+      const fitsCap = !cap || Math.max(0, ...routes.map(r => r.visits.length)) <= cap;
+      if (fitsDay && fitsCap) break;  // the stop limit needed more drivers than you have; the advice line says so
     }
-  } else routes = plan(stops, origin.p, available, settings, net, opts);
+  } else {
+    routes = plan(stops, origin.p, available, settings, net, opts);
+    const cap = settings.maxPerDay | 0;
+    for (let k = available + 1; cap && k <= Math.min(30, stops.length) && Math.max(0, ...routes.map(r => r.visits.length)) > cap; k++)
+      routes = plan(stops, origin.p, k, settings, net, opts);
+  }
 
   let merged = null;
   if (settings.merge && !assigned.length && !opts.pin.size && !opts.keepOrder && routes.length > 1) {
@@ -965,11 +977,14 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
   $("depotLabel").textContent = `near ${net.node(settings.depot).near}`;
   $("loop").checked = selecting ? settings.loopPicked : settings.loopArea;
 
+  lastRoutes = routes;
   const used = routes.filter(r => r.visits.length);
   const longest = Math.max(0, ...routes.map(r => r.min));
   $("kpis").innerHTML = [
     [stops.length + (origin.stop ? 1 : 0), "Stops", "Merchant locations to visit. Terminals at one address count as one stop."],
     [used.length, "Drivers", "Drivers who have at least one stop."],
+    [used.length ? Math.max(...used.map(r => r.visits.length)) : 0, "Most stops a day", "Stops for the busiest driver" + (settings.maxPerDay ? `. Your limit is ${settings.maxPerDay}.` : ". Set a limit under Working-day details.")],
+    [routes.reduce((a, r) => a + r.visits.reduce((n, v) => n + v.stop.terminals.length, 0), 0), "Terminals", "Terminals across all the stops. Terminals at one address count as one stop."],
     [routes.reduce((a, r) => a + r.km, 0).toFixed(1), "Total km", "Combined driving distance of all routes."],
     [fmtMin(longest), "Longest day", "Working time of the busiest driver: driving plus time at each stop. Compare it with your day length."]
   ].map(([v, l, tip]) => `<div class="kpi"><b>${v}</b><span>${l}<button type="button" class="tip" data-tip="${esc(tip)}">i</button></span></div>`).join("");
@@ -993,6 +1008,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
         merged.moved ? `Moved ${merged.moved} outlying stop${merged.moved > 1 ? "s" : ""} to the driver already heading there (saves ${merged.movedKm.toFixed(0)} km).` : "",
         `Every day still fits ${settings.dayHours}h. To use all ${available} drivers, untick "Combine routes heading the same way" under Advanced in step 1.`].filter(Boolean).join(" ")
     : selecting && used.length && used.length < available ? `Using ${used.length} of ${available} drivers — the selection fits in a ${settings.dayHours}h day.` : "";
+  if (settings.maxPerDay && used.length > available && !selecting) $("advice").textContent += ` The ${settings.maxPerDay}-stop limit needs ${used.length} drivers, more than the ${available} you set.`;
   const pinned = new Set(Object.values(settings.pin || {}));
   drawNearby(routes, origin);
   const routesEl = $("routes");
@@ -1034,7 +1050,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
       <div class="dhead">
         <span class="swatch" style="background:${color}"></span>
         <input class="dname" value="${esc(driverName(i))}" placeholder="Driver ${i + 1}" aria-label="Driver name" spellcheck="false">
-        <span class="dstats">${r.visits.length} stop${r.visits.length === 1 ? "" : "s"} · ${r.km.toFixed(0)} km<br>${fmtMin(r.min)}${over ? `<span class="tag over">${pinned.has(i) ? "LIMIT OVERRIDDEN" : "OVER DAY"}</span>` : ""}</span>
+        <span class="dstats">${r.visits.length} stop${r.visits.length === 1 ? "" : "s"} · ${r.visits.reduce((n, v) => n + v.stop.terminals.length, 0)} term. · ${r.km.toFixed(0)} km<br>${fmtMin(r.min)}${settings.maxPerDay && r.visits.length > settings.maxPerDay ? '<span class="tag over">OVER STOP LIMIT</span>' : ""}${over ? `<span class="tag over">${pinned.has(i) ? "LIMIT OVERRIDDEN" : "OVER DAY"}</span>` : ""}</span>
       </div>
       <div class="bar" title="Working time relative to the longest route"><i style="width:${r.min / maxMin * 100}%;background:${over ? "var(--danger)" : color}"></i></div>
       <div class="body">${r.visits.length ? `
@@ -1101,7 +1117,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
 // Controls ------------------------------------------------------------------
 let timer = 0;
 const replanSoon = () => { clearTimeout(timer); timer = setTimeout(replan, 120); };
-[["drivers", "drivers"], ["service", "serviceMin"], ["speed", "speed"], ["day", "dayHours"]].forEach(([id, key]) => {
+[["drivers", "drivers"], ["service", "serviceMin"], ["speed", "speed"], ["day", "dayHours"], ["maxPerDay", "maxPerDay"]].forEach(([id, key]) => {
   const el = $(id);
   el.value = settings[key];
   el.oninput = () => {
@@ -1110,7 +1126,7 @@ const replanSoon = () => { clearTimeout(timer); timer = setTimeout(replan, 120);
     settings[key] = v; save(); dayLine(); replanSoon();
   };
 });
-const dayLine = () => $("dayLine").textContent = `${settings.serviceMin} min/stop · ${settings.speed} km/h · ${settings.dayHours}h day`;
+const dayLine = () => $("dayLine").textContent = `${settings.serviceMin} min/stop · ${settings.speed} km/h · ${settings.dayHours}h day${settings.maxPerDay ? ` · max ${settings.maxPerDay} stops` : ""}`;
 dayLine();
 function resetDepot() { settings.depot = DEFAULTS.depot; save(); fitNext = true; replan(); toast("Depot moved back to New Kingston"); }
 $("depotReset").onclick = resetDepot;
@@ -1305,6 +1321,16 @@ async function copyText(text, btn) {
   toast("Copied. Paste it into a message to send to the driver.");
   if (btn) { const old = btn.textContent; btn.textContent = "Copied ✓"; btn.classList.add("ok"); setTimeout(() => { btn.textContent = old; btn.classList.remove("ok"); }, 1800); }
 }
+$("csvBtn").onclick = () => {  // one row per terminal: driver, order, merchant, address, terminal, leg km, ETA
+  const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const rows = [["Driver", "Stop", "Merchant", "Address", "Parish", "Terminal ID", "Currency", "Leg km", "ETA min"]];
+  lastRoutes.forEach((r, i) => r.visits.forEach(v => v.stop.terminals.forEach(t =>
+    rows.push([driverName(i), v.seq, v.stop.merchants.join(" · "), v.stop.address, v.stop.parish, t.id, t.currency, v.legKm.toFixed(1), Math.round(v.eta)]))));
+  if (rows.length === 1) return toast("Nothing to export yet");
+  const url = URL.createObjectURL(new Blob(["﻿" + rows.map(r => r.map(q).join(",")).join("\r\n")], { type: "text/csv" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: `routes-${new Date().toISOString().slice(0, 10)}.csv` });
+  a.click(); URL.revokeObjectURL(url);
+};
 $("printBtn").onclick = () => {  // print every driver's full list
   document.querySelectorAll(".driver").forEach(c => c.classList.add("open"));
   window.print();
