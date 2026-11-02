@@ -369,6 +369,72 @@
   }
   /* iOS Safari zooms the page when a focused field's text is under 16px */
   @media (max-width: 800px) { input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px; } }
+
+  /* ---- Day-by-day schedule ---- */
+  .days { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .dayhead { display: flex; align-items: center; gap: 4px; font-size: 13px; }
+  .dayhead .x { width: 28px; height: 28px; font-size: 18px; line-height: 1; }
+  .dayhead input[type=date] { background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; color: var(--text); font-size: 12px; }
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .week button { display: flex; flex-direction: column; align-items: center; padding: 4px 0 5px; border: 1px solid var(--line); border-radius: 8px;
+                 background: none; cursor: pointer; color: var(--muted); font-size: 11px; line-height: 1.2; min-width: 0; }
+  .week button b { font-size: 15px; color: var(--text); }
+  .week button i { font-style: normal; font-size: 10px; font-weight: 700; min-width: 18px; padding: 0 5px; border-radius: 999px; margin-top: 2px; }
+  .week button.has i { background: var(--ok); color: #fff; }
+  .week button.today { border-color: var(--accent); }
+  .week button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .week button[aria-selected="true"] b { color: #fff; }
+  .week button[aria-selected="true"].has i { background: #fff; color: var(--accent); }
+  .daynote { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .daynote b { color: var(--text); }
+
+  /* ---- Editing routes: drag a stop to another driver, or tap it for options ---- */
+  .lead { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .grip { color: var(--muted); font-size: 12px; line-height: 1; user-select: none; }
+  .stops li[draggable="true"] { cursor: grab; }
+  .stops li.open { background: var(--chip); }
+  body.dragging [data-drop]:not(.dragsrc) { outline: 2px dashed var(--line); outline-offset: -2px; }
+  [data-drop].dropok { outline: 2px dashed var(--accent) !important; background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .driver.dragsrc { opacity: .55; }
+  .drophint { display: none; padding: 6px 12px 8px; font-size: 12px; }
+  body.dragging .driver:not(.dragsrc) .drophint { display: block; }
+  .save { color: var(--ok); font-weight: 600; } .cost { color: var(--danger); font-weight: 600; }
+  .stoptools { grid-column: 1 / -1; display: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+               padding: 10px; margin-top: 6px; cursor: default; }
+  .stops li.open .stoptools { display: block; }
+  .stoptools h4, #gbox h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .stoptools h4 + * { margin-bottom: 12px; }
+  .moveto { display: flex; flex-wrap: wrap; gap: 6px; }
+  .moveto button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--chip); border-radius: 6px;
+                   padding: 5px 9px; cursor: pointer; font-size: 12px; text-align: left; }
+  .moveto button:hover { border-color: var(--accent); }
+  .moveto button.best { border-color: var(--ok); }
+  .moveto em { font-style: normal; font-size: 11px; color: var(--muted); }
+  .closest { display: flex; flex-direction: column; gap: 4px; }
+  .cl { display: flex; gap: 8px; align-items: center; justify-content: space-between; background: var(--chip); border-radius: 6px; padding: 6px 8px; }
+  .cl > div:first-child { min-width: 0; }
+  .cl .addr { font-size: 12px; }
+  .acts { display: flex; gap: 4px; flex: none; }
+  .mini { font-size: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--accent); border-radius: 6px; padding: 3px 8px;
+          cursor: pointer; white-space: nowrap; }
+  .mini:hover { border-color: var(--accent); }
+  .mini.danger { color: var(--danger); }
+  .toolfoot { display: flex; gap: 6px; flex-wrap: wrap; }
+  .free { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .fd { display: inline-flex; align-items: center; gap: 6px; border: 1px dashed var(--line); border-radius: 999px; padding: 4px 10px; color: var(--text); }
+  .fd em { font-style: normal; display: none; }
+  body.dragging .fd em { display: inline; }
+  .changes { margin: 8px 20px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
+  .changes[hidden] { display: none; }
+  .changes .row { justify-content: space-between; padding: 3px 0; color: var(--text); font-size: 12px; flex-wrap: nowrap; }
+  #gbox { display: flex; flex-direction: column; gap: 6px; }
+  #gbox[hidden] { display: none; }
+  @media (max-width: 800px) {
+    .grip { display: none; }
+    .mini, .moveto button { min-height: 38px; }
+    .changes { margin-left: 16px; margin-right: 16px; }
+  }
+  @media print { .stoptools, .grip, .free, .changes, .days { display: none !important; } }
 </style>
 </head>
 <body>
@@ -384,6 +450,19 @@
         </span>
       </div>
       <div class="meta" id="meta">Loading terminals…</div>
+      <div class="days">
+        <div class="dayhead">
+          <button class="x" id="prevWeek" type="button" aria-label="Previous week" title="Previous week">‹</button>
+          <b id="weekLabel"></b>
+          <button class="x" id="nextWeek" type="button" aria-label="Next week" title="Next week">›</button>
+          <button type="button" class="tip" data-tip="Each day keeps its own plan, so you can map routes ahead of time. Pick a day to plan or review it. The green number is how many stops are planned that day.">i</button>
+          <span class="spacer"></span>
+          <button class="link" id="todayBtn" type="button">Today</button>
+          <input type="date" id="dayPick" aria-label="Go to a date">
+        </div>
+        <div class="week" id="week" role="tablist" aria-label="Day to plan"></div>
+        <div class="daynote" id="dayNote"></div>
+      </div>
       <nav class="stepper" id="stepper" aria-label="Planning steps">
         <button type="button" data-step="1"><span class="num">1</span><span class="lbl">Your day</span></button>
         <button type="button" data-step="2"><span class="num">2</span><span class="lbl">Where to go</span></button>
@@ -477,8 +556,9 @@
           <button type="button" class="tip" data-tip="Start from: begin at the depot or at any chosen terminal. Order: “Shortest route” lets the planner find the best order; “The order I chose” keeps your order, and shows how much distance that costs or saves.">i</button>
         </div>
         <div id="gbox" hidden>
-          <div class="row">Nearby terminals you could add <span class="sub" id="sugNote"></span></div>
-          <div class="chips" id="suggest"></div>
+          <div class="row"><b>Closest to</b> <select id="nearOf" aria-label="Show the locations closest to"></select>
+            <button type="button" class="tip" data-tip="The nearest other merchant locations by estimated road distance. Add one to the plan, or Swap it in place of the stop chosen here (for example when that merchant is closed).">i</button></div>
+          <div class="closest" id="suggest"></div>
         </div>
       </div>
 
@@ -501,8 +581,9 @@
       </div>
       <div class="kpis" id="kpis"></div>
       <div class="advice" id="advice"></div>
+      <div class="changes" id="changes" hidden></div>
       <div class="nearby" id="nearby" hidden></div>
-      <div class="hint tipline" id="tipline">Tap a driver to open their route. Under <b>More</b>, Bing Maps often finds Jamaican addresses that Google misses; Waze and Apple Maps open one stop at a time.</div>
+      <div class="hint tipline" id="tipline"><b>To change a route:</b> tap a stop to move it to another driver, see the closest locations, or remove it. On a computer you can also drag a stop onto another driver.</div>
       <div class="list" id="routes"></div>
     </section>
   </aside>
@@ -559,9 +640,10 @@
   </div>
   <div class="mbody">
     <ol class="steps">
+      <li><b>Pick a day</b> in the week strip at the top. Each day keeps its own plan, so you can map the week ahead.</li>
       <li><b>Your day.</b> Say how many drivers you have. The defaults for time per stop, speed and day length work for most days.</li>
       <li><b>Where to go.</b> The black <span class="dbadge sm">D</span> on the map is the <b>depot</b>, where every driver starts: drag it to move it. Then choose <b>Whole parishes</b> or <b>Specific terminals</b> (search, or press Browse all).</li>
-      <li><b>Routes.</b> Each driver gets a colour, a numbered list and a one-tap <b>Navigate</b> button. Tap a stop to find it on the map.</li>
+      <li><b>Routes.</b> Each driver gets a colour, a numbered list and a one-tap <b>Navigate</b> button. Tap a stop to move it to another driver, see the closest locations, swap or remove it. On a computer you can also drag a stop onto another driver: each driver shows how many km the move saves or adds.</li>
     </ol>
     <h3>What you'll see</h3>
     <dl class="gloss">
@@ -594,15 +676,42 @@ const store = {
 const DEFAULTS = { drivers: 3, serviceMin: 15, speed: 35, dayHours: 8, parishes: ["Kingston", "Saint Andrew"],
                    depot: [18.0075, -76.7850],  // New Kingston
                    picked: [], startId: null, order: "best", loopArea: true, loopPicked: false,
-                   gRadius: 6, gMax: 5, pin: {}, merge: true, maxPerDay: 0 };  // pin: stop id -> driver index the scheduler moved it to
-const hadSaved = store.get("routeSettings", null) !== null;
-let settings = { ...DEFAULTS, ...store.get("routeSettings", {}) };
-// mode says what is routed: "parishes" or "terminals" (the hand-picked list). Older saves had no mode: a saved selection meant terminals.
-if (settings.mode !== "parishes" && settings.mode !== "terminals") settings.mode = settings.picked.length ? "terminals" : "parishes";
+                   gRadius: 6, gMax: 5, merge: true, maxPerDay: 0,
+                   // The scheduler's edits, kept by terminal ID because stop ids shift when the data is rebuilt:
+                   // pin: terminal -> driver index it was moved to; extra / skip: stops added to / removed from the chosen parishes.
+                   pin: {}, extra: [], skip: [] };
+const SELECTION = { picked: [], startId: null, parishes: [], pin: {}, extra: [], skip: [] };
+
+// Day-by-day: every date has its own plan, so routes can be mapped ahead of time.
+const pad2 = n => String(n).padStart(2, "0");
+const keyOf = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const dateOf = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+const shiftKey = (k, days) => { const d = dateOf(k); d.setDate(d.getDate() + days); return keyOf(d); };
+const dayLabel = (k, o = { weekday: "short", day: "numeric", month: "short" }) => dateOf(k).toLocaleDateString("en-GB", o);
+const LONG = { weekday: "long", day: "numeric", month: "long" };
+const TODAY = keyOf(new Date());
+let schedule = store.get("schedule", {});  // "YYYY-MM-DD" -> that day's settings
+if (!Object.keys(schedule).length && store.get("routeSettings", null)) schedule[TODAY] = store.get("routeSettings");  // the plan from before days existed
+const hadSaved = Object.keys(schedule).length > 0;
+let day = TODAY;
+function loadDay(k) {
+  const last = store.get("routeSettings", null);
+  // An unplanned day keeps the last working-day details (drivers, speed, depot...) but starts with nothing chosen.
+  const s = schedule[k] ? { ...DEFAULTS, ...schedule[k] } : last ? { ...DEFAULTS, ...last, ...SELECTION } : { ...DEFAULTS };
+  // mode says what is routed: "parishes" or "terminals" (the hand-picked list). Older saves had no mode: a saved selection meant terminals.
+  if (s.mode !== "parishes" && s.mode !== "terminals") s.mode = s.picked.length ? "terminals" : "parishes";
+  return s;
+}
+let settings = loadDay(day);
 let lastRoutes = [];
 let names = store.get("driverNames", []);
 const driverName = i => names[i] || `Driver ${i + 1}`;
-const save = () => store.set("routeSettings", settings);
+let plannedIdx = null;  // terminal id -> other upcoming days it is chosen on; rebuilt after any change
+const save = () => {
+  schedule[day] = settings; store.set("schedule", schedule);
+  store.set("routeSettings", settings);  // the latest working-day details: the starting point for an unplanned day
+  plannedIdx = null; drawWeek();
+};
 
 // ---------------------------------------------------------------------------
 // Map and page
@@ -639,15 +748,99 @@ depotMarker.on("dragend", () => {
   save(); replan();
 });
 
-let data = null, net = null, byId = {}, layers = [], markers = {}, fitNext = true;
+let data = null, net = null, byId = {}, byTerminal = {}, layers = [], markers = {}, fitNext = true;
 
 const isPicked = s => settings.picked.some(p => p.s === s.id);
 function togglePick(s, tid) {
   if (isPicked(s)) {
     settings.picked = settings.picked.filter(p => p.s !== s.id);
     if (settings.startId === s.id) settings.startId = null;
-  } else { settings.picked = [...settings.picked, { s: s.id, t: tid || s.terminals[0].id }]; settings.mode = "terminals"; }
+    setMove(s, null);
+  } else { settings.picked = [...settings.picked, { s: s.id, t: tid || s.terminals[0].id }]; settings.mode = "terminals"; nearRef = null; }
   save(); fitNext = true; drawPicked(); replan();
+}
+
+// ---------------------------------------------------------------------------
+// Editing a plan by hand: move a stop to another driver, add, remove or swap one.
+// ---------------------------------------------------------------------------
+const tidOf = s => s.terminals[0].id;
+const inList = (list, s) => s.terminals.some(t => list.includes(t.id));
+const without = (list, s) => list.filter(t => !s.terminals.some(x => x.id === t));
+const movedTo = s => s.terminals.map(t => settings.pin[t.id]).find(d => d != null) ?? null;
+function setMove(s, d) {  // d: driver index, or null to let the planner decide again
+  const pin = { ...settings.pin };
+  s.terminals.forEach(t => delete pin[t.id]);
+  if (d != null) pin[tidOf(s)] = d;
+  settings.pin = pin;
+}
+function addStop(x, d) {
+  if (settings.mode === "terminals") { if (!isPicked(x)) settings.picked = [...settings.picked, { s: x.id, t: tidOf(x) }]; }
+  else if (inList(settings.skip, x)) settings.skip = without(settings.skip, x);
+  else settings.extra = [...settings.extra, tidOf(x)];
+  if (d != null) setMove(x, d);
+}
+function removeStop(s) {
+  setMove(s, null);
+  if (settings.mode === "terminals") {
+    settings.picked = settings.picked.filter(p => p.s !== s.id);
+    if (settings.startId === s.id) settings.startId = null;
+  } else if (inList(settings.extra, s)) settings.extra = without(settings.extra, s);
+  else settings.skip = [...settings.skip, tidOf(s)];
+}
+function swapStop(s, x, d) {  // x takes s's place (same driver, same spot in a hand-picked list)
+  if (settings.mode === "terminals" && !isPicked(x)) {
+    settings.picked = settings.picked.map(p => p.s === s.id ? { s: x.id, t: tidOf(x) } : p);
+    if (settings.startId === s.id) settings.startId = x.id;
+    setMove(s, null);
+    if (d != null) setMove(x, d);
+  } else { removeStop(s); addStop(x, d); }
+}
+const edited = () => { save(); drawPicked(); replan(); };
+
+// The nearest other locations by estimated road distance.
+function closestTo(s, n) {
+  const start = lastCtx && lastCtx.origin.stop;
+  return data.stops.filter(x => x !== s && x !== start)
+    .map(x => ({ x, km: net.km(s.node, x.node) }))
+    .sort((a, b) => a.km - b.km).slice(0, n);
+}
+function otherDaysTag(s) {  // flags a stop already chosen for another upcoming day, so it isn't booked twice
+  if (!plannedIdx) {
+    plannedIdx = new Map();
+    for (const [k, cfg] of Object.entries(schedule)) {
+      if (k === day || k < TODAY) continue;
+      const tids = cfg.mode === "terminals" ? (cfg.picked || []).map(p => p.t) : (cfg.extra || []);
+      tids.forEach(t => plannedIdx.set(t, [...(plannedIdx.get(t) || []), k]));
+    }
+  }
+  const ks = [...new Set(s.terminals.flatMap(t => plannedIdx.get(t.id) || []))].sort();
+  return ks.length ? `<span class="tag" title="Also chosen for ${esc(ks.map(k => dayLabel(k)).join(", "))}">ALSO ${esc(dayLabel(ks[0], { weekday: "short", day: "numeric" }).toUpperCase())}${ks.length > 1 ? ` +${ks.length - 1}` : ""}</span>` : "";
+}
+// Two pins on one point are the same building only when both are exact; town-level pins share a town centre.
+const exact = s => s.precision === "google" || s.precision === "street";
+const closestRow = (x, km, note, buttons, from) => `<div class="cl"><div>
+    <div class="addr"><b>${esc(x.merchants[0])}</b> <span class="sub">· ${km >= 0.05 ? `${km.toFixed(1)} km` : exact(x) && exact(from) ? "same spot" : "same area"}</span>${otherDaysTag(x)}</div>
+    <div class="sub">${esc(x.address)}, ${esc(x.parish)}${note ? ` · ${note}` : ""}</div></div>
+  <div class="acts">${buttons}</div></div>`;
+
+// Step 2: once terminals are chosen, list the locations closest to one of them.
+let nearRef = null;  // stop the list is about; null follows the latest pick
+function drawClosestPick() {
+  const picked = settings.picked.map(p => byId[p.s]).filter(Boolean);
+  const ref = picked.find(s => s.id === nearRef) || picked[picked.length - 1];
+  $("gbox").hidden = settings.mode !== "terminals" || !ref;
+  if (!ref) return;
+  $("nearOf").innerHTML = picked.map((s, i) => `<option value="${esc(s.id)}"${s === ref ? " selected" : ""}>${i + 1}. ${esc(s.merchants[0])}</option>`).join("");
+  $("suggest").innerHTML = closestTo(ref, 6).map(({ x, km }) => isPicked(x) ? closestRow(x, km, "already chosen", "", ref)
+    : closestRow(x, km, "", `<button class="mini" type="button" data-act="add" data-x="${esc(x.id)}">Add</button>
+        <button class="mini" type="button" data-act="swap" data-x="${esc(x.id)}" title="Replace ${esc(ref.merchants[0])} with this location">Swap</button>`, ref)).join("");
+  $("suggest").onclick = e => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const x = byId[b.dataset.x];
+    if (b.dataset.act === "add") { addStop(x, null); nearRef = ref.id; toast(`Added ${x.merchants[0]}`); }
+    else { swapStop(ref, x, null); nearRef = x.id; toast(`Swapped ${ref.merchants[0]} for ${x.merchants[0]}`); }
+    fitNext = true; edited();
+  };
 }
 
 function stopPopup(s, i, v) {
@@ -727,26 +920,21 @@ function replan() {
     ? { p: [start.lat, start.lon], show: start.show, text: placeText(start), stop: start }
     : { p: settings.depot, show: settings.depot, text: `${settings.depot[0]},${settings.depot[1]}` };
   const chosen = new Set(settings.parishes);
-  const stops = selecting ? picked.filter(s => s !== start) : data.stops.filter(s => chosen.has(s.parish));
+  const stops = selecting ? picked.filter(s => s !== start)
+    : data.stops.filter(s => chosen.has(s.parish) ? !inList(settings.skip, s) : inList(settings.extra, s));
   const available = Math.max(1, Math.min(30, settings.drivers | 0 || 1));
   const opts = { closed: selecting ? settings.loopPicked : settings.loopArea, keepOrder: settings.order === "mine",
-                 rank: selecting ? new Map(picked.map((s, i) => [s.id, i])) : null,
-                 pin: new Map(Object.entries(settings.pin || {}).filter(([id]) => stops.some(s => s.id === id))) };
-  const overridden = new Set(opts.pin.values());  // drivers whose day limit the user chose to stretch
+                 rank: selecting ? new Map(picked.map((s, i) => [s.id, i])) : null };
   let routes;
   const assigned = selecting ? currentGroups() : [];
   if (assigned.length) {  // each suggested group is one driver's route
     const inPlan = new Set(stops.map(s => s.id));
-    const per = assigned.map(g => g.filter(id => inPlan.has(id)));
-    for (const [id, d] of opts.pin) if (per[d]) { per.forEach(g => { const at = g.indexOf(id); if (at >= 0) g.splice(at, 1); }); per[d].push(id); }
-    routes = per.map(ids => ids.length
-      ? plan(ids.map(id => byId[id]), origin.p, 1, settings, net, { ...opts, pin: null })[0]
-      : { visits: [], km: 0, min: 0, method: "", closed: opts.closed, altKm: null });
+    routes = assigned.map(g => routeFor(g.filter(id => inPlan.has(id)).map(id => byId[id]), origin, opts));
   } else if (selecting) {  // a hand-picked set uses as few drivers as fit the working day
     const cap = settings.maxPerDay | 0;
     for (let k = 1; k <= Math.min(cap ? 30 : available, Math.max(1, stops.length)); k++) {
       routes = plan(stops, origin.p, k, settings, net, opts);
-      const fitsDay = Math.max(0, ...routes.filter((_, i) => !overridden.has(i)).map(r => r.min)) <= settings.dayHours * 60;
+      const fitsDay = Math.max(0, ...routes.map(r => r.min)) <= settings.dayHours * 60;
       const fitsCap = !cap || Math.max(0, ...routes.map(r => r.visits.length)) <= cap;
       if (fitsDay && fitsCap) break;  // the stop limit needed more drivers than you have; the advice line says so
     }
@@ -758,10 +946,14 @@ function replan() {
   }
 
   let merged = null;
-  if (settings.merge && !assigned.length && !opts.pin.size && !opts.keepOrder && routes.length > 1) {
+  if (settings.merge && !assigned.length && !opts.keepOrder && routes.length > 1) {
     const c = consolidate(routes, origin, opts, settings.dayHours * 60);
     if (c.routes.length < c.from || c.moved) { routes = c.routes; merged = c; }
   }
+  // Every driver you have gets a slot, so a free driver can be given stops by hand.
+  while (routes.length < available) routes.push(emptyRoute(opts.closed));
+  const baseOf = new Map(routes.flatMap((r, d) => r.visits.map(v => [v.stop.id, d])));
+  routes = applyMoves(routes, origin, opts);
 
   // A Google-refined plan stands in for the instant one while it is for the same stops, start and service time.
   const sig = [origin.p.join(","), opts.closed, settings.serviceMin,
@@ -769,13 +961,50 @@ function replan() {
   lastCtx = { routes, origin, selecting, sig };
   const viaGoogle = googlePlan && googlePlan.sig === sig;
   if (viaGoogle) routes = googlePlan.routes;
-  $("gbox").hidden = !(selecting && picked.length);
+  editCtx = { routes, origin, opts, baseOf, base: [], selecting,
+              where: new Map(routes.flatMap((r, d) => r.visits.map(v => [v.stop.id, { d, seq: v.seq }]))) };
   $("gbar").hidden = !stops.length;
   $("gstatus").textContent = viaGoogle ? googlePlan.status : "";
   $("refine").textContent = viaGoogle ? "Re-run with Google road times" : "Use real road times (Google)";
   draw(routes, stops, origin, { selecting, available, merged });
-  if (selecting && picked.length) scheduleSuggest(picked, origin, opts.closed);
   markGroups();
+}
+
+const emptyRoute = closed => ({ visits: [], km: 0, min: 0, method: "", closed, altKm: null });
+const routeFor = (list, origin, opts) => list.length ? plan(list, origin.p, 1, settings, net, opts)[0] : emptyRoute(opts.closed);
+
+// The scheduler's moves: a moved stop stays with the driver it was given. Only the routes that changed
+// are re-ordered, so every other driver's route stays exactly as planned.
+function applyMoves(routes, origin, opts) {
+  const target = new Map();
+  routes.forEach(r => r.visits.forEach(v => { const d = movedTo(v.stop); if (d != null && d < routes.length) target.set(v.stop, d); }));
+  if (!target.size) return routes;
+  const lists = routes.map((r, i) => r.visits.map(v => v.stop).filter(s => (target.get(s) ?? i) === i));
+  for (const [s, d] of target) if (!lists[d].includes(s)) lists[d].push(s);
+  return routes.map((r, i) => lists[i].length === r.visits.length && r.visits.every(v => lists[i].includes(v.stop))
+    ? r : routeFor(lists[i], origin, opts));
+}
+
+// What moving one stop would change, worked out with the same planner as the routes (estimated road km).
+let editCtx = null;
+function moveEffect(s, from, to) {
+  const { routes, origin, opts, base } = editCtx;
+  const stopsOf = i => routes[i].visits.map(v => v.stop);
+  const was = i => base[i] ??= routeFor(stopsOf(i), origin, opts).km;
+  const a = routeFor(stopsOf(from).filter(x => x !== s), origin, opts), b = routeFor([...stopsOf(to), s], origin, opts);
+  return { km: a.km + b.km - was(from) - was(to), min: b.min,
+           over: b.min > settings.dayHours * 60, cap: settings.maxPerDay && b.visits.length > settings.maxPerDay };
+}
+const effectText = e => (e.km <= -0.05 ? `<span class="save">saves ${(-e.km).toFixed(1)} km</span>`
+  : e.km >= 0.05 ? `<span class="cost">adds ${e.km.toFixed(1)} km</span>` : "same distance")
+  + (e.over ? ' · <span class="cost">over day</span>' : "") + (e.cap ? ' · <span class="cost">over stop limit</span>' : "");
+const effectPlain = e => e.km <= -0.05 ? `saves ${(-e.km).toFixed(1)} km` : e.km >= 0.05 ? `adds ${e.km.toFixed(1)} km` : "same distance";
+function moveStop(s, from, to) {
+  const e = moveEffect(s, from, to);
+  setMove(s, editCtx.baseOf.get(s.id) === to ? null : to);  // moving back to the planned driver just clears the move
+  openCards.add(to);
+  save(); replan();
+  toast(`Moved ${s.merchants[0]} to ${driverName(to)} · ${effectPlain(e)}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -819,26 +1048,6 @@ async function refine() {
   } finally { btn.disabled = false; }
 }
 $("refine").onclick = refine;
-
-let sugTimer = 0, sugKey = "";
-function scheduleSuggest(picked, origin, closed) {
-  const key = [picked.map(s => s.id).join(","), origin.p, closed, settings.dayHours, settings.serviceMin, settings.speed].join("|");
-  if (key === sugKey) return;
-  sugKey = key; clearTimeout(sugTimer);
-  $("sugNote").textContent = "";
-  sugTimer = setTimeout(async () => {
-    try {
-      const r = await api("/api/suggest", { stopIds: picked.slice(0, 40).map(s => s.id), start: startBody(origin), closed, limit: 8, ...planCfg() });
-      if (key !== sugKey) return;  // selection changed while waiting
-      $("sugNote").textContent = r.suggestions.length ? "· nearest first" : "· none close by that fit the day";
-      $("suggest").innerHTML = r.suggestions.map(s => `<button class="chip sug${s.fitsDay ? "" : " over"}" data-s="${esc(s.id)}"
-        title="${esc(s.address)}, ${esc(s.parish)} · ${s.nearKm} km from your nearest stop">＋ ${esc(s.merchants[0])} <span>+${s.extraKm} km</span></button>`).join("");
-      $("suggest").querySelectorAll(".chip").forEach(b => b.onclick = () => togglePick(byId[b.dataset.s]));
-    } catch (e) {
-      $("sugNote").textContent = "· suggestions unavailable"; $("suggest").innerHTML = "";
-    }
-  }, 400);
-}
 
 // Suggested groups map to drivers: groupAssign[i] is driver i's stops. Not saved; a reload falls back to a plain selection.
 let groupAssign = [], lastGroups = [];
@@ -911,10 +1120,10 @@ let repaintNearby = () => {};
 const roadKm = new Map();  // "stopA|stopB" -> real road km (null when unavailable), so each pair is asked once
 let nearSeq = 0;
 async function drawNearby(routes, origin) {
-  const box = $("nearby"), pin = settings.pin || {}, seq = ++nearSeq;
+  const box = $("nearby"), seq = ++nearSeq;
   const cands = [];
   routes.forEach((from, b) => from.visits.forEach(v => {
-    if (pin[v.stop.id] != null) return;
+    if (movedTo(v.stop) != null) return;
     let own = Infinity, ownStop = null;  // closest the stop gets to the rest of its own route (or the start, if it is alone)
     for (const w of from.visits) if (w !== v) { const k = net.km(v.stop.node, w.stop.node); if (k < own) { own = k; ownStop = w.stop; } }
     if (!ownStop) own = net.km(v.stop.node, net.node(origin.p));
@@ -930,26 +1139,20 @@ async function drawNearby(routes, origin) {
   }));
   cands.sort((x, y) => (y.own - y.km) - (x.own - x.km));
   const top = cands.slice(0, 3);
-  const active = Object.entries(pin).filter(([id, d]) => routes[d]?.visits.some(v => v.stop.id === id));
 
   let shown = [];
   const paint = offers => {
     shown = offers;
-    box.hidden = !offers.length && !active.length;
+    box.hidden = !offers.length;
     box.innerHTML = offers.map((o, n) => `<div class="row"><span><b>${esc(o.stop.merchants[0])}</b> is on ${esc(driverName(o.b))}'s route but is closer to
         ${esc(driverName(o.a))}'s${o.real ? " by road" : ""} (${o.km.toFixed(1)} km from ${esc(o.near.merchants[0])}, vs ${o.own.toFixed(1)} km ${o.ownStop || !o.real ? "on its own route" : "from the start"}${o.real ? "" : ", estimated"}). Add it to ${esc(driverName(o.a))}'s route?</span>
-        <button data-offer="${n}">Add to ${esc(driverName(o.a))}</button></div>`).join("")
-      + active.map(([id, d]) => `<div class="row"><span>${esc(byId[id].merchants[0])} was moved to ${esc(driverName(+d))}'s route by you.</span>
-        <button data-undo="${esc(id)}">Undo</button></div>`).join("");
+        <button data-offer="${n}">Add to ${esc(driverName(o.a))}</button></div>`).join("");
     box.querySelectorAll("[data-offer]").forEach(b => b.onclick = () => {
       const o = offers[+b.dataset.offer];
-      settings.pin = { ...pin, [o.stop.id]: o.a }; save(); replan();
-    });
-    box.querySelectorAll("[data-undo]").forEach(b => b.onclick = () => {
-      const { [b.dataset.undo]: _, ...rest } = pin; settings.pin = rest; save(); replan();
+      moveStop(o.stop, o.b, o.a);
     });
   };
-  repaintNearby = () => paint(shown);
+  repaintNearby = () => { paint(shown); drawChanges(); };
   paint([]);
   if (!top.length) return;
 
@@ -970,6 +1173,32 @@ async function drawNearby(routes, origin) {
   }));
 }
 
+// Everything the scheduler changed by hand on this day, each with an Undo.
+function drawChanges() {
+  const box = $("changes"), { routes, selecting } = editCtx, chosen = new Set(settings.parishes);
+  const items = [
+    ...routes.flatMap((r, d) => r.visits.filter(v => movedTo(v.stop) === d).map(v =>
+      [`Moved <b>${esc(v.stop.merchants[0])}</b> to ${esc(driverName(d))}`, "move", v.stop])),
+    ...(selecting ? [] : settings.extra.map(t => byId[byTerminal[t]]).filter(Boolean).map(s =>
+      [`Added <b>${esc(s.merchants[0])}</b>`, "add", s])),
+    ...(selecting ? [] : settings.skip.map(t => byId[byTerminal[t]]).filter(s => s && chosen.has(s.parish)).map(s =>
+      [`Removed <b>${esc(s.merchants[0])}</b>`, "remove", s]))
+  ];
+  box.hidden = !items.length;
+  box.innerHTML = `<div class="row"><b>Your changes</b>${items.length > 1 ? '<button class="mini" type="button" data-undoall>Undo all</button>' : ""}</div>`
+    + items.map(([text], n) => `<div class="row"><span>${text}</span><button class="mini" type="button" data-undo="${n}">Undo</button></div>`).join("");
+  box.onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const undo = ([, kind, s]) => kind === "move" ? setMove(s, null)
+      : kind === "add" ? (settings.extra = without(settings.extra, s), setMove(s, null))
+      : settings.skip = without(settings.skip, s);
+    if (b.dataset.undoall != null) items.forEach(undo); else undo(items[+b.dataset.undo]);
+    edited();
+  };
+}
+
+let openCards = new Set([0]);  // driver cards left open, kept across re-plans
+let drag = null;               // { s, from } while a stop is being dragged
 function draw(routes, stops, origin, { selecting, available, merged }) {
   layers.forEach(l => map.removeLayer(l));
   layers = []; markers = {};
@@ -1011,6 +1240,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
   if (settings.maxPerDay && used.length > available && !selecting) $("advice").textContent += ` The ${settings.maxPerDay}-stop limit needs ${used.length} drivers, more than the ${available} you set.`;
   const pinned = new Set(Object.values(settings.pin || {}));
   drawNearby(routes, origin);
+  drawChanges();
   const routesEl = $("routes");
   routesEl.innerHTML = stops.length ? "" : selecting
     ? '<div class="empty">No terminals chosen yet.<br><button class="btn" type="button" data-goto="2">Choose terminals</button></div>'
@@ -1024,13 +1254,14 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
     layers.push(startMarker);
   }
 
-  const routeGroups = [];
+  const routeGroups = {}, free = [], canMove = routes.length > 1 && !isMobile.matches;
   $("tipline").hidden = !stops.length;
   routes.forEach((r, i) => {
     if (!stops.length) return;  // nothing to show yet: the empty-state message above is enough
+    if (!r.visits.length) return free.push(i);  // listed compactly below the cards, as drop targets
     const color = COLORS[i % COLORS.length];
     const group = L.layerGroup().addTo(map);
-    layers.push(group); routeGroups.push(group);
+    layers.push(group); routeGroups[i] = group;
     if (r.visits.length) {
       L.polyline(r.path ? decodePolyline(r.path)  // drivable road path from Google
           : [origin.show, ...r.visits.map(v => v.stop.show), ...(r.closed ? [origin.show] : [])],
@@ -1045,7 +1276,8 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
 
     const over = r.min > dayMin;
     const card = document.createElement("div");
-    card.className = "driver" + (i === 0 && r.visits.length ? " open" : "");
+    card.className = "driver" + (openCards.has(i) ? " open" : "");
+    card.dataset.drop = i;
     card.innerHTML = `
       <div class="dhead">
         <span class="swatch" style="background:${color}"></span>
@@ -1053,6 +1285,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
         <span class="dstats">${r.visits.length} stop${r.visits.length === 1 ? "" : "s"} · ${r.visits.reduce((n, v) => n + v.stop.terminals.length, 0)} term. · ${r.km.toFixed(0)} km<br>${fmtMin(r.min)}${settings.maxPerDay && r.visits.length > settings.maxPerDay ? '<span class="tag over">OVER STOP LIMIT</span>' : ""}${over ? `<span class="tag over">${pinned.has(i) ? "LIMIT OVERRIDDEN" : "OVER DAY"}</span>` : ""}</span>
       </div>
       <div class="bar" title="Working time relative to the longest route"><i style="width:${r.min / maxMin * 100}%;background:${over ? "var(--danger)" : color}"></i></div>
+      <div class="drophint" data-hint></div>
       <div class="body">${r.visits.length ? `
         ${r.altKm == null ? "" : `<div class="hint" style="padding-top:10px">${settings.order === "mine"
           ? `Following your order: ${r.km.toFixed(1)} km. The recommended order is ${r.altKm.toFixed(1)} km${r.km - r.altKm > 0.05 ? ` (saves ${(r.km - r.altKm).toFixed(1)} km)` : ""}.`
@@ -1064,19 +1297,20 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
           <button data-solo>Show only this route</button><button data-copy>Copy list</button><button data-more>More ▾</button></div>
         <ul class="stops">${r.visits.map(v => {
           const s = v.stop, approx = s.precision === "parish" || s.parish_mismatch;
-          return `<li data-key="${i}-${v.seq}">
-            <span class="seq" style="background:${color}">${v.seq}</span>
+          return `<li data-key="${i}-${v.seq}" data-stop="${esc(s.id)}"${canMove ? ' draggable="true" title="Drag onto another driver to move this stop, or click for options"' : ""}>
+            <span class="lead"><span class="seq" style="background:${color}">${v.seq}</span>${canMove ? '<span class="grip" aria-hidden="true">⠿</span>' : ""}</span>
             <span><div class="addr">${esc(s.merchants.join(" · "))}${approx ? '<span class="tag" title="Map pin is only approximate; navigation links search the address">APPROX</span>' : ""}${s.no_physical ? '<span class="tag" title="The CSV marks every terminal here as having no physical location (Physical Location? = N)">NO PHYSICAL</span>' : ""}</div>
               <div class="sub">${esc(s.address)}, ${esc(s.parish)}${s.parish_mismatch ? ` (listed as ${esc(s.listed_parish)})` : ""}</div>
               <div class="sub terms">${s.terminals.map(t => `<code>${esc(t.id)}</code> ${esc(t.currency)}`).join(" · ")}</div></span>
             <span class="eta">+${fmtMin(v.eta)}<br>${v.legKm.toFixed(1)} km</span>
             ${navLinks(s)}
+            <div class="stoptools"></div>
           </li>`; }).join("")}
         </ul>
         <div class="hint">Order: ${esc(r.method)} · ${r.roadSource ? esc(r.roadSource) : "road-network estimate"}</div>`
         : '<div class="hint" style="padding-top:10px">No stops assigned.</div>'}</div>`;
 
-    card.querySelector(".dhead").onclick = () => card.classList.toggle("open");
+    card.querySelector(".dhead").onclick = () => { card.classList.toggle("open") ? openCards.add(i) : openCards.delete(i); };
     const nameInput = card.querySelector(".dname");
     nameInput.onclick = e => e.stopPropagation();
     nameInput.onkeydown = e => { if (e.key === "Enter" || e.key === "Escape") nameInput.blur(); };
@@ -1086,19 +1320,32 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
       if (!names[i]) nameInput.value = driverName(i);
       repaintNearby(); markGroups();  // text built from driver names must follow the rename
     };
-    card.querySelectorAll("li[data-key]").forEach(li => li.onclick = e => {
-      if (e.target.closest("a, button")) return;
-      const m = markers[li.dataset.key];
-      if (isMobile.matches) setView("map");
-      map.setView(m.getLatLng(), Math.max(map.getZoom(), 14)); m.openPopup();
+    card.querySelectorAll("li[data-key]").forEach(li => {
+      const s = byId[li.dataset.stop], tools = li.querySelector(".stoptools");
+      li.onclick = e => {  // open the stop's options; on a computer also show it on the map
+        if (e.target.closest("a, button, .stoptools")) return;
+        if (li.classList.toggle("open")) fillTools(tools, s, i, li.dataset.key);
+        if (!isMobile.matches) { const m = markers[li.dataset.key]; map.setView(m.getLatLng(), Math.max(map.getZoom(), 14)); m.openPopup(); }
+      };
+      li.ondragstart = e => {
+        drag = { s, from: i };
+        e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", s.id);  // Firefox needs some data
+        card.classList.add("dragsrc"); document.body.classList.add("dragging");
+        setTimeout(() => routesEl.querySelectorAll("[data-drop]").forEach(el => {  // after the drag image is taken
+          const j = +el.dataset.drop, hint = el.querySelector("[data-hint]");
+          if (j !== i && hint && drag) hint.innerHTML = `Drop here · ${effectText(moveEffect(s, i, j))}`;
+        }), 0);
+      };
+      li.ondragend = endDrag;
     });
+    dropTarget(card, i);
     const copy = card.querySelector("[data-copy]");
     if (copy) copy.onclick = () => copyText(routeText(i, r, origin), copy);
     const solo = card.querySelector("[data-solo]");
     if (solo) solo.onclick = () => {
       const isSolo = card.dataset.solo === "1";
-      routesEl.querySelectorAll(".driver").forEach((c, j) => {
-        const show = isSolo || j === i, only = !isSolo && j === i;
+      routesEl.querySelectorAll(".driver").forEach(c => {
+        const j = +c.dataset.drop, show = isSolo || j === i, only = !isSolo && j === i;
         c.classList.toggle("dim", !show);
         c.dataset.solo = only ? "1" : "";
         const b = c.querySelector("[data-solo]");  // every card's label must follow, not just the clicked one
@@ -1111,13 +1358,83 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
     };
     routesEl.appendChild(card);
   });
+  if (free.length) {  // drivers with no stops: drop a stop on one to give it to them
+    const row = document.createElement("div");
+    row.className = "free";
+    row.innerHTML = `Free drivers:` + free.map(j => `<span class="fd" data-drop="${j}"><span class="swatch" style="background:${COLORS[j % COLORS.length]}"></span>${esc(driverName(j))}<em data-hint></em></span>`).join("")
+      + (canMove ? '<span class="sub">Drag a stop here to give it to them.</span>' : "");
+    row.querySelectorAll("[data-drop]").forEach(el => dropTarget(el, +el.dataset.drop));
+    routesEl.appendChild(row);
+  }
   if (fitNext && bounds.length > 1) { map.fitBounds(bounds, { padding: [30, 30] }); fitNext = false; }
+}
+
+function endDrag() {
+  drag = null;
+  document.body.classList.remove("dragging");
+  document.querySelectorAll(".dragsrc, .dropok").forEach(el => el.classList.remove("dragsrc", "dropok"));
+  document.querySelectorAll("[data-hint]").forEach(el => el.textContent = "");
+}
+function dropTarget(el, j) {
+  el.ondragover = e => {
+    if (!drag || drag.from === j) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = "move"; el.classList.add("dropok");
+  };
+  el.ondragleave = e => { if (!el.contains(e.relatedTarget)) el.classList.remove("dropok"); };
+  el.ondrop = e => {
+    e.preventDefault();
+    const d = drag; endDrag();
+    if (d && d.from !== j) moveStop(d.s, d.from, j);
+  };
+}
+
+// A stop's options: move to another driver (with what it saves or costs), the closest locations, remove.
+function fillTools(el, s, i, key) {
+  const { routes, where } = editCtx;
+  const effects = routes.map((_, j) => j === i ? null : moveEffect(s, i, j));
+  const best = effects.reduce((b, e, j) => e && e.km < -0.05 && !e.over && (b < 0 || e.km < effects[b].km) ? j : b, -1);
+  const moves = routes.map((r, j) => j === i ? "" : `<button type="button" data-to="${j}"${j === best ? ' class="best" title="Shortest total distance"' : ""}>
+      <span class="swatch" style="background:${COLORS[j % COLORS.length]}"></span>
+      <span>${esc(driverName(j))}${r.visits.length ? "" : " (free)"}${j === best ? " ★" : ""}<br><em>${effectText(effects[j])}</em></span></button>`).join("");
+  const near = closestTo(s, 5).map(({ x, km }) => {
+    const w = where.get(x.id);
+    if (w && w.d === i) return closestRow(x, km, `also on this route (stop ${w.seq})`, "", s);
+    if (w) return closestRow(x, km, `on ${esc(driverName(w.d))}'s route`, `<button class="mini" type="button" data-act="take" data-x="${esc(x.id)}" data-from="${w.d}">Move here</button>`, s);
+    return closestRow(x, km, "not planned", `<button class="mini" type="button" data-act="add" data-x="${esc(x.id)}">Add</button>
+      <button class="mini" type="button" data-act="swap" data-x="${esc(x.id)}" title="Replace ${esc(s.merchants[0])} with this location">Swap</button>`, s);
+  }).join("");
+  el.innerHTML = (routes.length > 1 ? `<h4>Move to another driver</h4><div class="moveto">${moves}</div>` : "")
+    + `<h4>Closest locations</h4><div class="closest">${near}</div>
+    <div class="toolfoot"><button class="mini" type="button" data-act="map">Show on map</button>
+      <button class="mini danger" type="button" data-act="remove">Remove from this day</button></div>`;
+  el.onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const x = byId[b.dataset.x];
+    if (b.dataset.to) return moveStop(s, i, +b.dataset.to);
+    switch (b.dataset.act) {
+      case "take": return moveStop(x, +b.dataset.from, i);
+      case "add": addStop(x, i); toast(`Added ${x.merchants[0]} to ${driverName(i)}`); return edited();
+      case "swap": swapStop(s, x, i); toast(`Swapped ${s.merchants[0]} for ${x.merchants[0]}`); return edited();
+      case "remove": removeStop(s); toast(`Removed ${s.merchants[0]} from ${dayLabel(day)}`); return edited();
+      case "map": {
+        const m = markers[key];
+        if (isMobile.matches) setView("map");
+        map.setView(m.getLatLng(), Math.max(map.getZoom(), 14)); m.openPopup();
+      }
+    }
+  };
 }
 
 // Controls ------------------------------------------------------------------
 let timer = 0;
 const replanSoon = () => { clearTimeout(timer); timer = setTimeout(replan, 120); };
-[["drivers", "drivers"], ["service", "serviceMin"], ["speed", "speed"], ["day", "dayHours"], ["maxPerDay", "maxPerDay"]].forEach(([id, key]) => {
+const FIELDS = [["drivers", "drivers"], ["service", "serviceMin"], ["speed", "speed"], ["day", "dayHours"], ["maxPerDay", "maxPerDay"]];
+function syncControls() {  // show the open day's settings in the form
+  [...FIELDS, ["gRadius", "gRadius"], ["gMax", "gMax"]].forEach(([id, key]) => $(id).value = settings[key]);
+  $("merge").checked = settings.merge;
+  dayLine();
+}
+FIELDS.forEach(([id, key]) => {
   const el = $(id);
   el.value = settings[key];
   el.oninput = () => {
@@ -1157,7 +1474,7 @@ function search(q) {
   }
   hl = 0;
   $("results").innerHTML = hits.map(({ s, t }, i) => `<button data-i="${i}" class="${i === hl ? "hl" : ""}">
-      <div class="addr">${isPicked(s) ? "✓ " : ""}${esc(s.merchants.join(" · "))}</div>
+      <div class="addr">${isPicked(s) ? "✓ " : ""}${esc(s.merchants.join(" · "))}${otherDaysTag(s)}</div>
       <div class="sub">${t ? `<b>${esc(t.id)}</b> · ` : ""}${s.terminals.length} terminal${s.terminals.length > 1 ? "s" : ""} · ${esc(s.address)}, ${esc(s.parish)}</div>
     </button>`).join("") || (q.length >= 2 ? '<div class="sub" style="padding:8px 10px">No matching terminals</div>' : "");
   $("results").querySelectorAll("button").forEach(b => b.onmousedown = e => { e.preventDefault(); choose(+b.dataset.i); });
@@ -1195,6 +1512,7 @@ function drawPicked() {
   $("start").innerHTML = '<option value="">Depot</option>' + picked.map((p, i) =>
     `<option value="${esc(p.s)}"${p.s === settings.startId ? " selected" : ""}>${i + 1}. ${esc(byId[p.s].merchants[0])}</option>`).join("");
   $("order").value = settings.order;
+  drawClosestPick();
 }
 
 function drawParishes() {
@@ -1219,16 +1537,8 @@ fetch("stops.json", { cache: "no-store" })
     data = d;
     net = roadNetwork(d.hubs, d.roads);
     d.stops.forEach(s => byId[s.id] = s);
-    // Stop ids are positional and change when the data is rebuilt; terminal ids don't, so re-resolve saved picks.
-    const byTerminal = {};
     d.stops.forEach(s => s.terminals.forEach(t => byTerminal[t.id] = s.id));
-    const oldStart = settings.startId;
-    settings.startId = null;
-    settings.picked = settings.picked.map(p => {
-      const s = byTerminal[p.t];
-      if (s && p.s === oldStart) settings.startId = s;
-      return { s, t: p.t };
-    }).filter(p => p.s);
+    resolveDay();
     // Many stops share a town-centre coordinate; fan them out so every pin is visible.
     const seen = {};
     d.stops.forEach(s => {
@@ -1239,11 +1549,85 @@ fetch("stops.json", { cache: "no-store" })
     });
     const terminals = d.stops.reduce((a, s) => a + s.terminals.length, 0);
     $("meta").textContent = `${terminals} terminals at ${d.stops.length} locations · ${d.sources.join(", ")} · updated ${d.generated_at.replace("T", " ")}`;
+    drawWeek();
     drawParishes();
     drawPicked();
     replan();
   })
   .catch(() => $("meta").textContent = "Could not load stops.json — run build_data.py.");
+
+// Stop ids are positional and change when the data is rebuilt; terminal ids don't, so saved picks are re-resolved.
+function resolveDay() {
+  const oldStart = settings.startId;
+  settings.startId = null;
+  settings.picked = settings.picked.map(p => {
+    const s = byTerminal[p.t];
+    if (s && p.s === oldStart) settings.startId = s;
+    return { s, t: p.t };
+  }).filter(p => p.s);
+  // Moves saved before they were keyed by terminal used stop ids.
+  settings.pin = Object.fromEntries(Object.entries(settings.pin || {})
+    .map(([k, d]) => [/^S\d+$/.test(k) ? byId[k] && tidOf(byId[k]) : k, d]).filter(([k]) => k));
+}
+
+// ---------------------------------------------------------------------------
+// Day-by-day schedule: a week strip; each day keeps its own plan.
+// ---------------------------------------------------------------------------
+function dayStops(cfg) {  // how many stops a saved day plans
+  if (!cfg || !data) return 0;
+  if (cfg.mode === "terminals") return (cfg.picked || []).length;
+  const ps = new Set(cfg.parishes || []), skip = cfg.skip || [], extra = cfg.extra || [];
+  return data.stops.filter(s => ps.has(s.parish) ? !inList(skip, s) : inList(extra, s)).length;
+}
+function drawWeek() {
+  const sel = dateOf(day), mon = shiftKey(day, -((sel.getDay() + 6) % 7));
+  const keys = Array.from({ length: 7 }, (_, i) => shiftKey(mon, i));
+  $("weekLabel").textContent = `Week of ${dayLabel(mon, { day: "numeric", month: "short", year: "numeric" })}`;
+  $("week").innerHTML = keys.map(k => {
+    const n = dayStops(k === day ? settings : schedule[k]);
+    return `<button type="button" role="tab" data-day="${k}" aria-selected="${k === day}" class="${k === TODAY ? "today" : ""}${n ? " has" : ""}"
+      title="${esc(dayLabel(k, LONG))}${k === TODAY ? " (today)" : ""} · ${n ? `${n} stop${n === 1 ? "" : "s"} planned` : "nothing planned"}">
+      <span>${dayLabel(k, { weekday: "short" })}</span><b>${dateOf(k).getDate()}</b><i>${n || ""}</i></button>`;
+  }).join("");
+  $("todayBtn").hidden = day === TODAY;
+  $("dayPick").value = day;
+  const n = dayStops(settings), name = day === TODAY ? `today (${dayLabel(day)})` : dayLabel(day, LONG);
+  const others = Object.keys(schedule).filter(k => k !== day && dayStops(schedule[k])).sort();
+  const src = others.filter(k => k < day).pop() || others[0];
+  $("dayNote").innerHTML = n
+    ? `<span>Planning <b>${esc(name)}</b> · ${n} stop${n === 1 ? "" : "s"}</span><span class="spacer"></span><button class="link" type="button" data-dayact="clear">Clear this day</button>`
+    : `<span>Nothing planned for <b>${esc(name)}</b> yet.</span>${src ? `<button class="link" type="button" data-dayact="copy" data-src="${src}">Copy ${esc(dayLabel(src))}'s plan</button>` : ""}`;
+  $("p1h").textContent = day === TODAY ? "How many drivers today?" : `How many drivers on ${dayLabel(day)}?`;
+  $("p3h").textContent = `Routes · ${day === TODAY ? "Today" : dayLabel(day)}`;
+}
+function refreshDay() {
+  resolveDay(); plannedIdx = null;
+  googlePlan = null; groupAssign = []; nearRef = null; openCards = new Set([0]); fitNext = true;
+  syncControls(); drawWeek(); drawParishes(); drawPicked(); replan();
+}
+function openDay(k) {
+  if (!data || !k || k === day) return;
+  day = k; settings = loadDay(k);
+  refreshDay();
+}
+$("week").onclick = e => { const b = e.target.closest("[data-day]"); if (b) openDay(b.dataset.day); };
+$("prevWeek").onclick = () => openDay(shiftKey(day, -7));
+$("nextWeek").onclick = () => openDay(shiftKey(day, 7));
+$("todayBtn").onclick = () => openDay(TODAY);
+$("dayPick").onchange = () => openDay($("dayPick").value);
+$("dayNote").onclick = e => {
+  const b = e.target.closest("[data-dayact]"); if (!b || !data) return;
+  if (b.dataset.dayact === "copy") {
+    settings = JSON.parse(JSON.stringify(loadDay(b.dataset.src))); save();
+    toast(`Copied ${dayLabel(b.dataset.src)}'s plan to ${dayLabel(day)}`);
+  } else {
+    if (!confirm(`Clear the plan for ${dayLabel(day, LONG)}? Other days are not affected.`)) return;
+    delete schedule[day]; store.set("schedule", schedule);
+    settings = loadDay(day);
+    toast(`Cleared ${dayLabel(day)}`);
+  }
+  refreshDay();
+};
 
 // ---------------------------------------------------------------------------
 // Help and usability layer: tooltips, toast, guide, map key, copy/print
@@ -1307,7 +1691,7 @@ keyCtl.addTo(map);
 
 // Copy a driver's list as text (for WhatsApp / email) and print
 function routeText(i, r, origin) {
-  const head = `${driverName(i)}: ${r.visits.length} stops, ${r.km.toFixed(0)} km, ${fmtMin(r.min)}`;
+  const head = `${dayLabel(day, LONG)} · ${driverName(i)}: ${r.visits.length} stops, ${r.km.toFixed(0)} km, ${fmtMin(r.min)}`;
   const start = `Start: ${origin.stop ? origin.stop.merchants[0] + ", " + origin.stop.address : "Depot"}`;
   const lines = r.visits.map(v => `${v.seq}. ${v.stop.merchants.join(" / ")}, ${v.stop.address}, ${v.stop.parish} [${v.stop.terminals.map(t => t.id + " " + t.currency).join(", ")}]`);
   return [head, start, ...lines, r.closed ? "Return to start" : ""].filter(Boolean).join("\n");
@@ -1328,7 +1712,7 @@ $("csvBtn").onclick = () => {  // one row per terminal: driver, order, merchant,
     rows.push([driverName(i), v.seq, v.stop.merchants.join(" · "), v.stop.address, v.stop.parish, t.id, t.currency, v.legKm.toFixed(1), Math.round(v.eta)]))));
   if (rows.length === 1) return toast("Nothing to export yet");
   const url = URL.createObjectURL(new Blob(["﻿" + rows.map(r => r.map(q).join(",")).join("\r\n")], { type: "text/csv" }));
-  const a = Object.assign(document.createElement("a"), { href: url, download: `routes-${new Date().toISOString().slice(0, 10)}.csv` });
+  const a = Object.assign(document.createElement("a"), { href: url, download: `routes-${day}.csv` });
   a.click(); URL.revokeObjectURL(url);
 };
 $("printBtn").onclick = () => {  // print every driver's full list
