@@ -65,6 +65,11 @@
   .msg { min-height: 18px; margin-top: 6px; font-size: 12px; color: var(--muted); }
   .msg.bad { color: var(--danger); }
   .msg.good { color: var(--ok); }
+  .conote { margin-top: 8px; border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 9%, var(--panel)); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+  .conote h3 { margin: 0 0 6px; font-size: 13px; color: var(--warn); }
+  .conote ul { margin: 6px 0; padding-left: 18px; }
+  .conote li { margin: 3px 0; }
+  .conote .x { margin-top: 6px; }
   .browse { margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; }
   .browse > summary { cursor: pointer; padding: 11px 12px; font-weight: 600; font-size: 13px; list-style: none; display: flex; align-items: center; min-height: 44px; }
   .browse > summary::-webkit-details-marker { display: none; }
@@ -236,6 +241,7 @@
         <button class="btn" type="submit">Add</button>
       </form>
       <div class="msg" id="addMsg" role="status" aria-live="polite"></div>
+      <div id="coNote" role="status" aria-live="polite"></div>
       <details class="browse" id="browse">
         <summary>Pick from the list <span id="browseCount"></span></summary>
         <div class="bfilters">
@@ -912,6 +918,29 @@ function toggleStop(stopId) {
   rerender();
 }
 
+/**
+ * Heads-up only: when a terminal just added shares a location with terminals NOT on the driver's list,
+ * suggest contacting Epay (10 Argyle Road) to see if they're ready, so one delivery can cover them all.
+ */
+function notifyCompanions(addedIds) {
+  const have = new Set(st.ids), seen = new Set(), items = [];
+  for (const id of addedIds) {
+    const s = byTerminal.get(id);
+    if (!s || seen.has(s.id)) continue;
+    seen.add(s.id);
+    const others = s.terminals.filter(t => !have.has(t.id));
+    if (others.length) items.push({ s, mine: addedIds.filter(i => byTerminal.get(i) === s), others });
+  }
+  const box = $("coNote");
+  if (!items.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="conote">
+    <h3>Other terminals go to the same place</h3>
+    <ul>${items.map(({ s, mine, others }) => `<li><b>${esc(s.merchants[0])}</b>, ${esc(s.address)}, ${esc(s.parish)}: ${idList(others)} ${others.length === 1 ? "is" : "are"} also going there with ${mine.length === 1 ? "terminal " + esc(mine[0]) : "your terminals"}.</li>`).join("")}</ul>
+    <div>You may want to contact <b>Epay, 10 Argyle Road</b> to check whether ${items.some(i => i.others.length > 1) ? "they're" : "it's"} ready to be picked up, so you can make one delivery. This is only a heads-up; it's up to you.</div>
+    <button type="button" class="btn ghost sm x" id="coDismiss">Dismiss</button></div>`;
+}
+$("coNote").addEventListener("click", e => { if (e.target.closest("#coDismiss")) $("coNote").innerHTML = ""; });
+
 function addIds(text) {
   const tokens = [...new Set(text.split(/[\s,;]+/).filter(Boolean))];
   const looksLikeIds = tokens.length && tokens.every(t => /^\d+$/.test(t));
@@ -929,6 +958,7 @@ function addIds(text) {
   msg.textContent = [found.length ? `Added ${plural(found.length, "terminal")}.` : "", dup ? `${plural(dup, "ID")} already in your list.` : "",
     missing.length ? `Not found: ${missing.join(", ")}. Check the digits and remove them below.` : ""].filter(Boolean).join(" ");
   if (!st.chosen.length && st.mode === "choose") st.chosen = [];
+  notifyCompanions(found);
   $("add").value = ""; grow();
   rerender();
   if (found.length) setTimeout(() => $("s2").scrollIntoView({ behavior: "smooth", block: "start" }), 150);  // on to the next step
@@ -977,6 +1007,7 @@ function setTerminals(ids, on) {
   st.ids = on ? [...st.ids, ...ids.filter(id => !have.has(id))] : st.ids.filter(id => !ids.includes(id));
   st.chosen = st.chosen.filter(id => st.ids.includes(id));
   prevChosen = null; save(); rerender();
+  notifyCompanions(on ? ids.filter(id => byTerminal.has(id)) : []);
 }
 $("bbody").addEventListener("click", e => {
   const tr = e.target.closest("tr[data-bt]"); if (!tr) return;
