@@ -402,6 +402,7 @@
   .stoptools { grid-column: 1 / -1; display: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
                padding: 10px; margin-top: 6px; cursor: default; }
   .stops li.open .stoptools { display: block; }
+  .nav button.edit { color: var(--accent); border-color: var(--accent); font-weight: 600; margin-left: auto; }
   .stoptools h4, #gbox h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
   .stoptools h4 + * { margin-bottom: 12px; }
   .moveto { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -557,7 +558,7 @@
         </div>
         <div id="gbox" hidden>
           <div class="row"><b>Closest to</b> <select id="nearOf" aria-label="Show the locations closest to"></select>
-            <button type="button" class="tip" data-tip="The nearest other merchant locations by estimated road distance. Add one to the plan, or Swap it in place of the stop chosen here (for example when that merchant is closed).">i</button></div>
+            <button type="button" class="tip" data-tip="The nearest other merchant locations in the same parish (Kingston and St Andrew count as one), by estimated road distance. Merchants whose map pin is only a town centre are listed last, without an exact distance. Add one to the plan, or Swap it in place of the stop chosen here (for example when that merchant is closed).">i</button></div>
           <div class="closest" id="suggest"></div>
         </div>
       </div>
@@ -583,7 +584,7 @@
       <div class="advice" id="advice"></div>
       <div class="changes" id="changes" hidden></div>
       <div class="nearby" id="nearby" hidden></div>
-      <div class="hint tipline" id="tipline"><b>To change a route:</b> tap a stop to move it to another driver, see the closest locations, or remove it. On a computer you can also drag a stop onto another driver.</div>
+      <div class="hint tipline" id="tipline"><b>To change a route:</b> press <b>Move / closest</b> on any stop to move it to another driver, see the closest locations, or remove it. On a computer you can also drag a stop onto another driver.</div>
       <div class="list" id="routes"></div>
     </section>
   </aside>
@@ -797,12 +798,17 @@ function swapStop(s, x, d) {  // x takes s's place (same driver, same spot in a 
 }
 const edited = () => { save(); drawPicked(); replan(); };
 
-// The nearest other locations by estimated road distance.
+// Pin quality: "street" is a Google rooftop match, "google" another Google match; the rest are town or parish centres.
+const exact = s => s.precision === "street" || s.precision === "google";
+const area = p => p === "Kingston" || p === "Saint Andrew" ? "Kingston & St Andrew" : p;  // one built-up area
+// The nearest other locations in the same parish, by estimated road distance. Approximate pins only fill in
+// when there aren't enough exactly placed ones, since their distance is a guess.
 function closestTo(s, n) {
-  const start = lastCtx && lastCtx.origin.stop;
-  return data.stops.filter(x => x !== s && x !== start)
-    .map(x => ({ x, km: net.km(s.node, x.node) }))
-    .sort((a, b) => a.km - b.km).slice(0, n);
+  const start = lastCtx && lastCtx.origin.stop, byKm = (a, b) => a.km - b.km;
+  const near = data.stops.filter(x => x !== s && x !== start && area(x.parish) === area(s.parish))
+    .map(x => ({ x, km: net.km(s.node, x.node) }));
+  const good = near.filter(c => exact(c.x)).sort(byKm);
+  return (good.length >= n ? good : [...good, ...near.filter(c => !exact(c.x)).sort(byKm)]).slice(0, n);
 }
 function otherDaysTag(s) {  // flags a stop already chosen for another upcoming day, so it isn't booked twice
   if (!plannedIdx) {
@@ -816,12 +822,19 @@ function otherDaysTag(s) {  // flags a stop already chosen for another upcoming 
   const ks = [...new Set(s.terminals.flatMap(t => plannedIdx.get(t.id) || []))].sort();
   return ks.length ? `<span class="tag" title="Also chosen for ${esc(ks.map(k => dayLabel(k)).join(", "))}">ALSO ${esc(dayLabel(ks[0], { weekday: "short", day: "numeric" }).toUpperCase())}${ks.length > 1 ? ` +${ks.length - 1}` : ""}</span>` : "";
 }
-// Two pins on one point are the same building only when both are exact; town-level pins share a town centre.
-const exact = s => s.precision === "google" || s.precision === "street";
+// A distance means something only between two real pins. Town- and parish-level pins put every merchant
+// in a town on the town centre, so between them it is unknown, not 0.
+function kmLabel(x, km, from) {
+  if (!exact(x) || !exact(from)) return km < 0.05 ? "same town, exact distance unknown" : `about ${km.toFixed(1)} km (approximate pin)`;
+  if (km < 0.05) return x.precision === "street" && from.precision === "street" ? "same building" : "same map pin";
+  return `${km.toFixed(1)} km`;
+}
 const closestRow = (x, km, note, buttons, from) => `<div class="cl"><div>
-    <div class="addr"><b>${esc(x.merchants[0])}</b> <span class="sub">· ${km >= 0.05 ? `${km.toFixed(1)} km` : exact(x) && exact(from) ? "same spot" : "same area"}</span>${otherDaysTag(x)}</div>
-    <div class="sub">${esc(x.address)}, ${esc(x.parish)}${note ? ` · ${note}` : ""}</div></div>
+    <div class="addr"><b>${esc(x.merchants[0])}</b> <span class="sub">· ${kmLabel(x, km, from)}</span>${otherDaysTag(x)}</div>
+    <div class="sub">${esc(x.address)}, ${esc(x.parish)}${x.parish_mismatch ? ` (listed as ${esc(x.listed_parish)})` : ""}${note ? ` · ${note}` : ""}</div></div>
   <div class="acts">${buttons}</div></div>`;
+const closestNote = s => exact(s) ? ""
+  : `<div class="sub">${esc(s.merchants[0])}'s map pin is only approximate (${esc(s.place || "town")} centre), so these distances are rough.</div>`;
 
 // Step 2: once terminals are chosen, list the locations closest to one of them.
 let nearRef = null;  // stop the list is about; null follows the latest pick
@@ -831,7 +844,7 @@ function drawClosestPick() {
   $("gbox").hidden = settings.mode !== "terminals" || !ref;
   if (!ref) return;
   $("nearOf").innerHTML = picked.map((s, i) => `<option value="${esc(s.id)}"${s === ref ? " selected" : ""}>${i + 1}. ${esc(s.merchants[0])}</option>`).join("");
-  $("suggest").innerHTML = closestTo(ref, 6).map(({ x, km }) => isPicked(x) ? closestRow(x, km, "already chosen", "", ref)
+  $("suggest").innerHTML = closestNote(ref) + closestTo(ref, 6).map(({ x, km }) => isPicked(x) ? closestRow(x, km, "already chosen", "", ref)
     : closestRow(x, km, "", `<button class="mini" type="button" data-act="add" data-x="${esc(x.id)}">Add</button>
         <button class="mini" type="button" data-act="swap" data-x="${esc(x.id)}" title="Replace ${esc(ref.merchants[0])} with this location">Swap</button>`, ref)).join("");
   $("suggest").onclick = e => {
@@ -1303,7 +1316,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
               <div class="sub">${esc(s.address)}, ${esc(s.parish)}${s.parish_mismatch ? ` (listed as ${esc(s.listed_parish)})` : ""}</div>
               <div class="sub terms">${s.terminals.map(t => `<code>${esc(t.id)}</code> ${esc(t.currency)}`).join(" · ")}</div></span>
             <span class="eta">+${fmtMin(v.eta)}<br>${v.legKm.toFixed(1)} km</span>
-            ${navLinks(s)}
+            ${navLinks(s).replace(/<\/div>$/, `<button type="button" class="edit" data-edit aria-expanded="false">Move / closest ▾</button></div>`)}
             <div class="stoptools"></div>
           </li>`; }).join("")}
         </ul>
@@ -1322,9 +1335,17 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
     };
     card.querySelectorAll("li[data-key]").forEach(li => {
       const s = byId[li.dataset.stop], tools = li.querySelector(".stoptools");
+      const editBtn = li.querySelector("[data-edit]");
+      const toggleTools = () => {
+        const open = li.classList.toggle("open");
+        if (open) fillTools(tools, s, i, li.dataset.key);
+        editBtn.setAttribute("aria-expanded", String(open));
+        editBtn.textContent = open ? "Close ▴" : "Move / closest ▾";
+      };
+      editBtn.onclick = toggleTools;
       li.onclick = e => {  // open the stop's options; on a computer also show it on the map
         if (e.target.closest("a, button, .stoptools")) return;
-        if (li.classList.toggle("open")) fillTools(tools, s, i, li.dataset.key);
+        toggleTools();
         if (!isMobile.matches) { const m = markers[li.dataset.key]; map.setView(m.getLatLng(), Math.max(map.getZoom(), 14)); m.openPopup(); }
       };
       li.ondragstart = e => {
@@ -1404,7 +1425,7 @@ function fillTools(el, s, i, key) {
       <button class="mini" type="button" data-act="swap" data-x="${esc(x.id)}" title="Replace ${esc(s.merchants[0])} with this location">Swap</button>`, s);
   }).join("");
   el.innerHTML = (routes.length > 1 ? `<h4>Move to another driver</h4><div class="moveto">${moves}</div>` : "")
-    + `<h4>Closest locations</h4><div class="closest">${near}</div>
+    + `<h4>Closest locations in ${esc(area(s.parish))}</h4><div class="closest">${closestNote(s)}${near}</div>
     <div class="toolfoot"><button class="mini" type="button" data-act="map">Show on map</button>
       <button class="mini danger" type="button" data-act="remove">Remove from this day</button></div>`;
   el.onclick = e => {
