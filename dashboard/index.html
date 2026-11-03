@@ -402,6 +402,11 @@
   .stoptools { grid-column: 1 / -1; display: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
                padding: 10px; margin-top: 6px; cursor: default; }
   .stops li.open .stoptools { display: block; }
+  .stops li.dropbefore { box-shadow: inset 0 3px 0 var(--accent); }
+  .stops li.dropafter { box-shadow: inset 0 -3px 0 var(--accent); }
+  .popup .assign { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 2px; padding: 8px; border-radius: 6px; background: var(--chip); }
+  .popup .assign label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); }
+  .popup .assign select, .stoptools select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; max-width: 210px; }
   .nav button.edit { color: var(--accent); border-color: var(--accent); font-weight: 600; margin-left: auto; }
   .stoptools h4, #gbox h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
   .stoptools h4 + * { margin-bottom: 12px; }
@@ -584,7 +589,7 @@
       <div class="advice" id="advice"></div>
       <div class="changes" id="changes" hidden></div>
       <div class="nearby" id="nearby" hidden></div>
-      <div class="hint tipline" id="tipline"><b>To change a route:</b> press <b>Move / closest</b> on any stop to move it to another driver, see the closest locations, or remove it. On a computer you can also drag a stop onto another driver.</div>
+      <div class="hint tipline" id="tipline"><b>To change a route:</b> press <b>Edit stop</b> on any stop (or click its pin on the map) to change its stop number, give it to another driver, see the closest locations, or remove it. On a computer you can also drag stops up and down, or onto another driver.</div>
       <div class="list" id="routes"></div>
     </section>
   </aside>
@@ -644,7 +649,7 @@
       <li><b>Pick a day</b> in the week strip at the top. Each day keeps its own plan, so you can map the week ahead.</li>
       <li><b>Your day.</b> Say how many drivers you have. The defaults for time per stop, speed and day length work for most days.</li>
       <li><b>Where to go.</b> The black <span class="dbadge sm">D</span> on the map is the <b>depot</b>, where every driver starts: drag it to move it. Then choose <b>Whole parishes</b> or <b>Specific terminals</b> (search, or press Browse all).</li>
-      <li><b>Routes.</b> Each driver gets a colour, a numbered list and a one-tap <b>Navigate</b> button. Tap a stop to move it to another driver, see the closest locations, swap or remove it. On a computer you can also drag a stop onto another driver: each driver shows how many km the move saves or adds.</li>
+      <li><b>Routes.</b> Each driver gets a colour, a numbered list and a one-tap <b>Navigate</b> button. Press <b>Edit stop</b> (or click a pin on the map) to change a stop's number, give it to another driver, see the closest locations, swap or remove it. On a computer you can also drag stops up and down a route, or onto another driver: each driver shows how many km the move saves or adds.</li>
     </ol>
     <h3>What you'll see</h3>
     <dl class="gloss">
@@ -680,8 +685,9 @@ const DEFAULTS = { drivers: 3, serviceMin: 15, speed: 35, dayHours: 8, parishes:
                    gRadius: 6, gMax: 5, merge: true, maxPerDay: 0,
                    // The scheduler's edits, kept by terminal ID because stop ids shift when the data is rebuilt:
                    // pin: terminal -> driver index it was moved to; extra / skip: stops added to / removed from the chosen parishes.
-                   pin: {}, extra: [], skip: [] };
-const SELECTION = { picked: [], startId: null, parishes: [], pin: {}, extra: [], skip: [] };
+                   // seq: driver index -> that driver's stop order set by hand (terminal ids).
+                   pin: {}, extra: [], skip: [], seq: {} };
+const SELECTION = { picked: [], startId: null, parishes: [], pin: {}, extra: [], skip: [], seq: {} };
 
 // Day-by-day: every date has its own plan, so routes can be mapped ahead of time.
 const pad2 = n => String(n).padStart(2, "0");
@@ -860,14 +866,27 @@ function stopPopup(s, i, v) {
   const terms = s.terminals.map(t => `${esc(t.id)} (${t.currency})`).join(", ");
   return `<div class="popup"><b>${esc(s.merchants.join(" · "))}</b><br>${esc(s.address)}, ${esc(s.parish)}
     <br>${v ? `${esc(driverName(i))} · stop ${v.seq} · ETA +${fmtMin(v.eta)}` : "Start of the route"}
-    <br><span class="sub">Terminals: ${terms}</span>${navLinks(s)}
+    <br><span class="sub">Terminals: ${terms}</span>${v && editCtx ? assignBox(s, i, v) : ""}${navLinks(s)}
     <button class="pickbtn" data-stop="${esc(s.id)}">${isPicked(s) ? "Remove from selection" : "Add to selection"}</button></div>`;
+}
+// On the map: give this stop to any driver and set its place in that driver's order.
+function assignBox(s, i, v) {
+  const { routes } = editCtx;
+  return `<div class="assign">
+    <label>Driver <select data-assign="${esc(s.id)}" data-from="${i}">${routes.map((r, j) =>
+      `<option value="${j}"${j === i ? " selected" : ""}>${esc(driverName(j))}${j === i ? " (now)" : ` · ${effectPlain(moveEffect(s, i, j))}`}</option>`).join("")}</select></label>
+    <label>Stop no. <select data-seqof="${esc(s.id)}" data-from="${i}">${routes[i].visits.map((_, k) =>
+      `<option value="${k}"${k + 1 === v.seq ? " selected" : ""}>${k + 1} of ${routes[i].visits.length}</option>`).join("")}</select></label></div>`;
 }
 map.on("popupopen", e => {
   const b = e.popup.getElement().querySelector(".pickbtn");
   if (b && b.dataset.stop) b.onclick = () => { map.closePopup(); togglePick(byId[b.dataset.stop]); };
   const r = e.popup.getElement().querySelector("[data-resetdepot]");
   if (r) r.onclick = () => { map.closePopup(); resetDepot(); };
+  const as = e.popup.getElement().querySelector("[data-assign]");
+  if (as) as.onchange = () => { map.closePopup(); moveStop(byId[as.dataset.assign], +as.dataset.from, +as.value); };
+  const sq = e.popup.getElement().querySelector("[data-seqof]");
+  if (sq) sq.onchange = () => { map.closePopup(); reorder(+sq.dataset.from, byId[sq.dataset.seqof], +sq.value); };
 });
 
 // Splitting by angle gives every driver a wedge, so two drivers can end up heading the same way.
@@ -986,16 +1005,54 @@ function replan() {
 const emptyRoute = closed => ({ visits: [], km: 0, min: 0, method: "", closed, altKm: null });
 const routeFor = (list, origin, opts) => list.length ? plan(list, origin.p, 1, settings, net, opts)[0] : emptyRoute(opts.closed);
 
-// The scheduler's moves: a moved stop stays with the driver it was given. Only the routes that changed
-// are re-ordered, so every other driver's route stays exactly as planned.
+// The scheduler's moves: a moved stop stays with the driver it was given, and a driver whose stop order was
+// set by hand keeps it. Only the routes that changed are re-planned; every other route stays as planned.
 function applyMoves(routes, origin, opts) {
-  const target = new Map();
+  const target = new Map(), seq = settings.seq || {};
   routes.forEach(r => r.visits.forEach(v => { const d = movedTo(v.stop); if (d != null && d < routes.length) target.set(v.stop, d); }));
-  if (!target.size) return routes;
+  if (!target.size && !Object.keys(seq).length) return routes;
   const lists = routes.map((r, i) => r.visits.map(v => v.stop).filter(s => (target.get(s) ?? i) === i));
   for (const [s, d] of target) if (!lists[d].includes(s)) lists[d].push(s);
-  return routes.map((r, i) => lists[i].length === r.visits.length && r.visits.every(v => lists[i].includes(v.stop))
-    ? r : routeFor(lists[i], origin, opts));
+  return routes.map((r, i) => {
+    const order = seq[i] && handOrder(seq[i], lists[i], origin, opts.closed);
+    if (order) return manualRoute(order, origin, opts);
+    return lists[i].length === r.visits.length && r.visits.every(v => lists[i].includes(v.stop)) ? r : routeFor(lists[i], origin, opts);
+  });
+}
+// The saved order for the stops this driver has now; stops new to the route go where they add the least distance.
+function handOrder(tids, list, origin, closed) {
+  const order = [];
+  for (const t of tids) { const s = byId[byTerminal[t]]; if (s && list.includes(s) && !order.includes(s)) order.push(s); }
+  if (!order.length) return null;
+  const o = net.node(origin.p);
+  for (const s of list.filter(x => !order.includes(x))) {
+    const pts = [o, ...order.map(x => x.node)];
+    let at = order.length, cost = Infinity;
+    for (let k = 0; k <= order.length; k++) {
+      const a = pts[k], b = k < order.length ? pts[k + 1] : closed ? o : null;
+      const c = net.km(a, s.node) + (b ? net.km(s.node, b) - net.km(a, b) : 0);
+      if (c < cost) { cost = c; at = k; }
+    }
+    order.splice(at, 0, s);
+  }
+  return order;
+}
+const manualRoute = (order, origin, opts) => ({
+  ...plan(order, origin.p, 1, settings, net, { ...opts, keepOrder: true, rank: new Map(order.map((s, k) => [s.id, k])) })[0],
+  method: "your order (set by hand)", manual: true });
+function reorder(i, s, pos) {  // put stop s at position pos (0-based) in driver i's route
+  const order = editCtx.routes[i].visits.map(v => v.stop).filter(x => x !== s);
+  pos = Math.max(0, Math.min(pos, order.length));
+  if (editCtx.routes[i].visits[pos]?.stop === s) return;
+  order.splice(pos, 0, s);
+  settings.seq = { ...settings.seq, [i]: order.map(tidOf) };
+  openCards.add(i); save(); replan();
+  toast(`${s.merchants[0]} is now stop ${pos + 1} for ${driverName(i)}`);
+}
+function reoptimise(i) {
+  const { [i]: _, ...rest } = settings.seq || {};
+  settings.seq = rest; save(); replan();
+  toast(`${driverName(i)}'s route is back to the recommended order`);
 }
 
 // What moving one stop would change, worked out with the same planner as the routes (estimated road km).
@@ -1044,12 +1101,12 @@ async function refine() {
     for (const r of routes) {
       if (!r.visits.length) { out.push(r); continue; }
       const res = await api("/api/route", { stopIds: r.visits.map(v => v.stop.id), start: startBody(origin), closed: r.closed,
-        order: settings.order, path: true, ...planCfg() });
+        order: r.manual ? "mine" : settings.order, path: true, ...planCfg() });
       const sr = res.routes[0]; usage = res.usage;
       if (sr.note) notes.add(sr.note);
       sources.add(sr.distances === "google" ? "Google" : sr.distances === "mixed" ? "partly Google" : sr.legs === "google" ? "estimated order, Google path" : "estimated");
       out.push({ visits: sr.stops.map(s => ({ stop: byId[s.id], seq: s.seq, eta: s.etaMin, legKm: s.legKm })),
-        km: sr.km, min: sr.workMin, method: sr.orderedBy, closed: sr.closed, altKm: sr.otherOrderKm,
+        km: sr.km, min: sr.workMin, method: sr.orderedBy, closed: sr.closed, altKm: sr.otherOrderKm, manual: r.manual,
         path: sr.polyline, roadSource: [...sources].join(" + ") });
     }
     const tooBig = routes.filter(r => r.visits.length > 24).length;
@@ -1072,7 +1129,7 @@ function applyGroups(list) {
   groupAssign = list.map(ids => ids.filter(id => byId[id]));
   const seen = new Set();
   settings.picked = groupAssign.flat().filter(id => !seen.has(id) && seen.add(id)).map(id => ({ s: id, t: byId[id].terminals[0].id }));
-  settings.startId = null; settings.pin = {}; settings.mode = "terminals";
+  settings.startId = null; settings.pin = {}; settings.seq = {}; settings.mode = "terminals";
   save(); fitNext = true; drawPicked(); replan();
 }
 function toggleGroup(g) {
@@ -1195,7 +1252,8 @@ function drawChanges() {
     ...(selecting ? [] : settings.extra.map(t => byId[byTerminal[t]]).filter(Boolean).map(s =>
       [`Added <b>${esc(s.merchants[0])}</b>`, "add", s])),
     ...(selecting ? [] : settings.skip.map(t => byId[byTerminal[t]]).filter(s => s && chosen.has(s.parish)).map(s =>
-      [`Removed <b>${esc(s.merchants[0])}</b>`, "remove", s]))
+      [`Removed <b>${esc(s.merchants[0])}</b>`, "remove", s])),
+    ...routes.flatMap((r, d) => r.manual ? [[`Set the stop order for ${esc(driverName(d))} by hand`, "order", d]] : [])
   ];
   box.hidden = !items.length;
   box.innerHTML = `<div class="row"><b>Your changes</b>${items.length > 1 ? '<button class="mini" type="button" data-undoall>Undo all</button>' : ""}</div>`
@@ -1204,6 +1262,7 @@ function drawChanges() {
     const b = e.target.closest("button"); if (!b) return;
     const undo = ([, kind, s]) => kind === "move" ? setMove(s, null)
       : kind === "add" ? (settings.extra = without(settings.extra, s), setMove(s, null))
+      : kind === "order" ? settings.seq = Object.fromEntries(Object.entries(settings.seq).filter(([k]) => +k !== s))
       : settings.skip = without(settings.skip, s);
     if (b.dataset.undoall != null) items.forEach(undo); else undo(items[+b.dataset.undo]);
     edited();
@@ -1267,7 +1326,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
     layers.push(startMarker);
   }
 
-  const routeGroups = {}, free = [], canMove = routes.length > 1 && !isMobile.matches;
+  const routeGroups = {}, free = [], canMove = !isMobile.matches;
   $("tipline").hidden = !stops.length;
   routes.forEach((r, i) => {
     if (!stops.length) return;  // nothing to show yet: the empty-state message above is enough
@@ -1300,7 +1359,9 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
       <div class="bar" title="Working time relative to the longest route"><i style="width:${r.min / maxMin * 100}%;background:${over ? "var(--danger)" : color}"></i></div>
       <div class="drophint" data-hint></div>
       <div class="body">${r.visits.length ? `
-        ${r.altKm == null ? "" : `<div class="hint" style="padding-top:10px">${settings.order === "mine"
+        ${r.altKm == null ? "" : `<div class="hint" style="padding-top:10px">${r.manual
+          ? `<b>Your order</b>: ${r.km.toFixed(1)} km. The recommended order is ${r.altKm.toFixed(1)} km${r.km - r.altKm > 0.05 ? ` (saves ${(r.km - r.altKm).toFixed(1)} km)` : ""}. <button class="mini" type="button" data-reopt>Use recommended order</button>`
+          : settings.order === "mine"
           ? `Following your order: ${r.km.toFixed(1)} km. The recommended order is ${r.altKm.toFixed(1)} km${r.km - r.altKm > 0.05 ? ` (saves ${(r.km - r.altKm).toFixed(1)} km)` : ""}.`
           : `<b>Recommended order</b>: ${r.km.toFixed(1)} km${r.altKm - r.km > 0.05 ? `, ${(r.altKm - r.km).toFixed(1)} km shorter than the order you selected them in` : " — same as your selection order"}.`}</div>`}
         <div class="hint" style="padding-top:${r.altKm == null ? 10 : 0}px">${origin.stop ? `Starts at ${esc(origin.stop.merchants[0])}` : "Starts at the depot"}${r.closed ? " and returns there" : `, ends at stop ${r.visits.length}`}.</div>
@@ -1310,13 +1371,13 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
           <button data-solo>Show only this route</button><button data-copy>Copy list</button><button data-more>More ▾</button></div>
         <ul class="stops">${r.visits.map(v => {
           const s = v.stop, approx = s.precision === "parish" || s.parish_mismatch;
-          return `<li data-key="${i}-${v.seq}" data-stop="${esc(s.id)}"${canMove ? ' draggable="true" title="Drag onto another driver to move this stop, or click for options"' : ""}>
+          return `<li data-key="${i}-${v.seq}" data-stop="${esc(s.id)}"${canMove ? ' draggable="true" title="Drag up or down to change the order, or onto another driver to move it. Click for options."' : ""}>
             <span class="lead"><span class="seq" style="background:${color}">${v.seq}</span>${canMove ? '<span class="grip" aria-hidden="true">⠿</span>' : ""}</span>
             <span><div class="addr">${esc(s.merchants.join(" · "))}${approx ? '<span class="tag" title="Map pin is only approximate; navigation links search the address">APPROX</span>' : ""}${s.no_physical ? '<span class="tag" title="The CSV marks every terminal here as having no physical location (Physical Location? = N)">NO PHYSICAL</span>' : ""}</div>
               <div class="sub">${esc(s.address)}, ${esc(s.parish)}${s.parish_mismatch ? ` (listed as ${esc(s.listed_parish)})` : ""}</div>
               <div class="sub terms">${s.terminals.map(t => `<code>${esc(t.id)}</code> ${esc(t.currency)}`).join(" · ")}</div></span>
             <span class="eta">+${fmtMin(v.eta)}<br>${v.legKm.toFixed(1)} km</span>
-            ${navLinks(s).replace(/<\/div>$/, `<button type="button" class="edit" data-edit aria-expanded="false">Move / closest ▾</button></div>`)}
+            ${navLinks(s).replace(/<\/div>$/, `<button type="button" class="edit" data-edit aria-expanded="false">Edit stop ▾</button></div>`)}
             <div class="stoptools"></div>
           </li>`; }).join("")}
         </ul>
@@ -1340,7 +1401,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
         const open = li.classList.toggle("open");
         if (open) fillTools(tools, s, i, li.dataset.key);
         editBtn.setAttribute("aria-expanded", String(open));
-        editBtn.textContent = open ? "Close ▴" : "Move / closest ▾";
+        editBtn.textContent = open ? "Close ▴" : "Edit stop ▾";
       };
       editBtn.onclick = toggleTools;
       li.onclick = e => {  // open the stop's options; on a computer also show it on the map
@@ -1358,8 +1419,26 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
         }), 0);
       };
       li.ondragend = endDrag;
+      // Dropping on a stop of the same route puts the dragged stop before or after it.
+      const half = e => e.clientY > li.getBoundingClientRect().top + li.offsetHeight / 2;
+      li.ondragover = e => {
+        if (!drag || drag.from !== i || drag.s === s) return;
+        e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "move";
+        li.classList.toggle("dropafter", half(e)); li.classList.toggle("dropbefore", !half(e));
+      };
+      li.ondragleave = e => { if (!li.contains(e.relatedTarget)) li.classList.remove("dropbefore", "dropafter"); };
+      li.ondrop = e => {
+        if (!drag || drag.from !== i) return;
+        e.preventDefault(); e.stopPropagation();
+        const d = drag, after = half(e); endDrag();
+        if (d.s === s) return;
+        const order = r.visits.map(v => v.stop).filter(x => x !== d.s);
+        reorder(i, d.s, order.indexOf(s) + (after ? 1 : 0));
+      };
     });
     dropTarget(card, i);
+    const reopt = card.querySelector("[data-reopt]");
+    if (reopt) reopt.onclick = () => reoptimise(i);
     const copy = card.querySelector("[data-copy]");
     if (copy) copy.onclick = () => copyText(routeText(i, r, origin), copy);
     const solo = card.querySelector("[data-solo]");
@@ -1393,7 +1472,7 @@ function draw(routes, stops, origin, { selecting, available, merged }) {
 function endDrag() {
   drag = null;
   document.body.classList.remove("dragging");
-  document.querySelectorAll(".dragsrc, .dropok").forEach(el => el.classList.remove("dragsrc", "dropok"));
+  document.querySelectorAll(".dragsrc, .dropok, .dropbefore, .dropafter").forEach(el => el.classList.remove("dragsrc", "dropok", "dropbefore", "dropafter"));
   document.querySelectorAll("[data-hint]").forEach(el => el.textContent = "");
 }
 function dropTarget(el, j) {
@@ -1424,15 +1503,22 @@ function fillTools(el, s, i, key) {
     return closestRow(x, km, "not planned", `<button class="mini" type="button" data-act="add" data-x="${esc(x.id)}">Add</button>
       <button class="mini" type="button" data-act="swap" data-x="${esc(x.id)}" title="Replace ${esc(s.merchants[0])} with this location">Swap</button>`, s);
   }).join("");
-  el.innerHTML = (routes.length > 1 ? `<h4>Move to another driver</h4><div class="moveto">${moves}</div>` : "")
+  const n = routes[i].visits.length, at = where.get(s.id).seq;
+  const order = n > 1 ? `<h4>Stop number</h4><div class="row"><select data-seq aria-label="Stop number">${routes[i].visits.map((_, k) =>
+      `<option value="${k}"${k + 1 === at ? " selected" : ""}>${k + 1}</option>`).join("")}</select>
+      <span class="sub">of ${n} for ${esc(driverName(i))}${routes[i].manual ? ' · order set by you. <button class="link" type="button" data-act="reopt">Use recommended order</button>' : ""}</span></div>` : "";
+  el.innerHTML = order + (routes.length > 1 ? `<h4>Move to another driver</h4><div class="moveto">${moves}</div>` : "")
     + `<h4>Closest locations in ${esc(area(s.parish))}</h4><div class="closest">${closestNote(s)}${near}</div>
     <div class="toolfoot"><button class="mini" type="button" data-act="map">Show on map</button>
       <button class="mini danger" type="button" data-act="remove">Remove from this day</button></div>`;
+  const seqSel = el.querySelector("[data-seq]");
+  if (seqSel) seqSel.onchange = () => reorder(i, s, +seqSel.value);
   el.onclick = e => {
     const b = e.target.closest("button"); if (!b) return;
     const x = byId[b.dataset.x];
     if (b.dataset.to) return moveStop(s, i, +b.dataset.to);
     switch (b.dataset.act) {
+      case "reopt": return reoptimise(i);
       case "take": return moveStop(x, +b.dataset.from, i);
       case "add": addStop(x, i); toast(`Added ${x.merchants[0]} to ${driverName(i)}`); return edited();
       case "swap": swapStop(s, x, i); toast(`Swapped ${s.merchants[0]} for ${x.merchants[0]}`); return edited();
@@ -1481,7 +1567,7 @@ document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => {
 });
 $("order").onchange = () => { settings.order = $("order").value; save(); replan(); };
 $("start").onchange = () => { settings.startId = $("start").value || null; save(); replan(); };
-$("clearPick").onclick = () => { settings.pin = {}; settings.picked = []; settings.startId = null; save(); fitNext = true; drawPicked(); replan(); };
+$("clearPick").onclick = () => { settings.pin = {}; settings.seq = {}; settings.picked = []; settings.startId = null; save(); fitNext = true; drawPicked(); replan(); };
 
 // Terminal search: terminal ID, merchant name or address.
 let hits = [], hl = 0;
